@@ -391,6 +391,7 @@ public:
     BVSparse<JitArenaAllocator> *              upwardExposedFields;
     BVSparse<JitArenaAllocator> *              typesNeedingKnownObjectLayout;
     BVSparse<JitArenaAllocator> *              slotDeadStoreCandidates;
+    BVSparse<JitArenaAllocator> *              auxSlotPtrUpwardExposedUses; 
     TempNumberTracker *                     tempNumberTracker;
     TempObjectTracker *                     tempObjectTracker;
 #if DBG
@@ -437,6 +438,7 @@ private:
         upwardExposedFields(nullptr),
         typesNeedingKnownObjectLayout(nullptr),
         slotDeadStoreCandidates(nullptr),
+        auxSlotPtrUpwardExposedUses(nullptr),
         tempNumberTracker(nullptr),
         tempObjectTracker(nullptr),
 #if DBG
