@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -8,12 +9,7 @@ FLAG(IsCollectGarbageEnabled, CollectGarbage)
 FLAG(IsErrorStackTraceEnabled, errorStackTrace)
 FLAG(IsES6UnicodeVerboseEnabled, ES6UnicodeVerbose)
 FLAG_RELEASE(IsIntlEnabled, Intl)
-FLAG_RELEASE(IsES6SpeciesEnabled, ES6Species)
-FLAG_RELEASE(IsES6ClassAndExtendsEnabled, ES6Classes)
 FLAG_RELEASE(IsES6DateParseFixEnabled, ES6DateParseFix)
-FLAG_RELEASE(IsES6DefaultArgsEnabled, ES6DefaultArgs)
-FLAG_RELEASE(IsES6DestructuringEnabled, ES6Destructuring)
-FLAG_RELEASE(IsES6ForLoopSemanticsEnabled, ES6ForLoopSemantics)
 FLAG_RELEASE(IsES6FunctionNameFullEnabled, ES6FunctionNameFull)
 FLAG_RELEASE(IsES6GeneratorsEnabled, ES6Generators)
 FLAG_RELEASE(IsES7ExponentiationOperatorEnabled, ES7ExponentiationOperator)
@@ -25,7 +21,6 @@ FLAG_RELEASE(IsES6ModuleEnabled, ES6Module)
 FLAG_RELEASE(IsES6ObjectExtensionsEnabled, ES6Object)
 FLAG_RELEASE(IsES6NumberExtensionsEnabled, ES6Number)
 FLAG_RELEASE(IsES6ObjectLiteralsEnabled, ES6ObjectLiterals)
-FLAG_RELEASE(IsES6PromiseEnabled, ES6Promise)
 FLAG_RELEASE(IsES6ProxyEnabled, ES6Proxy)
 FLAG_RELEASE(IsES6RestEnabled, ES6Rest)
 FLAG_RELEASE(IsES6SpreadEnabled, ES6Spread)
@@ -36,7 +31,6 @@ FLAG_RELEASE(IsES6ToPrimitiveEnabled, ES6ToPrimitive)
 FLAG_RELEASE(IsES6ToLengthEnabled, ES6ToLength)
 FLAG_RELEASE(IsES6ToStringTagEnabled, ES6ToStringTag)
 FLAG_RELEASE(IsES6UnicodeExtensionsEnabled, ES6Unicode)
-FLAG_RELEASE(IsES6UnscopablesEnabled, ES6Unscopables)
 FLAG_RELEASE(IsES6RegExStickyEnabled, ES6RegExSticky)
 FLAG_RELEASE(IsES2018RegExDotAllEnabled, ES2018RegExDotAll)
 FLAG_RELEASE(IsES6RegExPrototypePropertiesEnabled, ES6RegExPrototypeProperties)
@@ -47,11 +41,19 @@ FLAG_RELEASE(IsES7AsyncAndAwaitEnabled, ES7AsyncAwait)
 FLAG_RELEASE(IsESObjectGetOwnPropertyDescriptorsEnabled, ESObjectGetOwnPropertyDescriptors)
 FLAG_RELEASE(IsESSharedArrayBufferEnabled, ESSharedArrayBuffer)
 FLAG_RELEASE(IsESDynamicImportEnabled, ESDynamicImport)
+FLAG_RELEASE(IsESImportMetaEnabled, ESImportMeta)
 FLAG_RELEASE(IsESBigIntEnabled, ESBigInt)
+FLAG_RELEASE(IsESNumericSeparatorEnabled, ESNumericSeparator)
+FLAG_RELEASE(IsESHashbangEnabled, ESHashbang)
+FLAG_RELEASE(IsESNullishCoalescingOperatorEnabled, ESNullishCoalescingOperator)
 FLAG_RELEASE(IsESExportNsAsEnabled, ESExportNsAs)
 FLAG_RELEASE(IsESSymbolDescriptionEnabled, ESSymbolDescription)
+FLAG_RELEASE(IsESPromiseAnyEnabled, ESPromiseAny)
+FLAG_RELEASE(IsESArrayFindFromLastEnabled , ESArrayFindFromLast)
 FLAG_RELEASE(IsESGlobalThisEnabled, ESGlobalThis)
-#ifdef ENABLE_PROJECTION
-FLAG(AreWinRTDelegatesInterfaces, WinRTDelegateInterfaces)
-FLAG_RELEASE(IsWinRTAdaptiveAppsEnabled, WinRTAdaptiveApps)
+FLAG_RELEASE(IsES2018AsyncIterationEnabled, ES2018AsyncIteration)
+FLAG_RELEASE(IsESTopLevelAwaitEnabled, ESTopLevelAwait)
+
+#ifdef ENABLE_TEST_HOOKS
+FLAG_RELEASE(Force32BitByteCode, Force32BitByteCode)
 #endif

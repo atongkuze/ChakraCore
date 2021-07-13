@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
@@ -204,7 +205,7 @@ namespace Js
     {
         if (!IsValidCharCount(newLength))
         {
-            JavascriptExceptionOperators::ThrowOutOfMemory(this->GetScriptContext());
+            JavascriptError::ThrowRangeError(this->GetScriptContext(), JSERR_OutOfBoundString);
         }
         m_charLength = newLength;
     }
@@ -696,6 +697,70 @@ case_2:
         return builder.ToString();
     }
 
+
+    // Relative indexing proposal 
+    // String.prototype.at(index): https://tc39.es/proposal-relative-indexing-method/#sec-string.prototype.at
+    // Spec: https://tc39.es/proposal-relative-indexing-method
+    // Github: https://github.com/tc39/proposal-relative-indexing-method
+    Var JavascriptString::EntryAt(RecyclableObject* function, CallInfo callInfo, ...) {
+        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
+
+        ARGUMENTS(args, callInfo);
+        ScriptContext* scriptContext = function->GetScriptContext();
+        JS_REENTRANCY_LOCK(jsReentLock, scriptContext->GetThreadContext());
+
+        Assert(!(callInfo.Flags & CallFlags_New));
+
+        JavascriptString * pThis = nullptr;
+
+        // 1. Let O be ? RequireObjectCoercible(this value).
+        // 2. Let S be ? ToString(O).
+        JS_REENTRANT(jsReentLock, GetThisStringArgument(args, scriptContext, _u("String.prototype.at"), &pThis));
+
+        // 3. Let len be the length of S.
+        charcount_t len = pThis->GetLength();
+
+        // 4. Let relativeIndex be ? ToInteger(index).
+        int64_t relativeIndex = 0;
+
+        if (args.Info.Count > 1)
+        {
+            JS_REENTRANT(jsReentLock, relativeIndex = NumberUtilities::TryToInt64(JavascriptConversion::ToInteger(args[1], scriptContext)));
+        }
+
+        // 5. If relativeIndex >= 0, then
+        //     a. Let k be relativeIndex.
+        // 6. Else,
+        //     a. Let k be len + relativeIndex.
+        int64_t k = relativeIndex;
+        
+        if (relativeIndex < 0)
+        {
+            k += len;
+        }
+        
+        // 7. If k < 0 or k >= len, then return undefined.
+        if (k < 0 || k >= (int64_t)len)
+        {
+            return scriptContext->GetLibrary()->GetUndefined();
+        }
+        
+        Var value;
+        // 8. Return the String value consisting of only the code unit at position k in S.
+        if (pThis->GetItemAt((charcount_t)k, &value))
+        {
+#ifdef ENABLE_SPECTRE_RUNTIME_MITIGATIONS
+            value = BreakSpeculation(value);
+#endif
+            return value;
+        }
+        else
+        {
+            // Yes, i except this to be
+            return scriptContext->GetLibrary()->GetUndefined();
+        }
+    }
+
     Var JavascriptString::EntryCharAt(RecyclableObject* function, CallInfo callInfo, ...)
     {
         PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
@@ -1057,7 +1122,7 @@ case_2:
 
         if (args.Info.Count > 2)
         {
-            if (JavascriptOperators::IsUndefinedObject(args[2], scriptContext))
+            if (JavascriptOperators::IsUndefinedObject(args[2]))
             {
                 position = 0;
             }
@@ -1614,7 +1679,7 @@ case_2:
         JavascriptString * pMatch = nullptr;
 
         JavascriptString * pReplace = nullptr;
-        JavascriptFunction* replacefn = nullptr;
+        RecyclableObject* replacefn = nullptr;
 
         SearchValueHelper(scriptContext, ((args.Info.Count > 1)?args[1]:scriptContext->GetLibrary()->GetNull()), &pRegEx, &pMatch);
         ReplaceValueHelper(scriptContext, ((args.Info.Count > 2) ? args[2] : scriptContext->GetLibrary()->GetUndefined()), &replacefn, &pReplace);
@@ -1667,14 +1732,14 @@ case_2:
         }
     }
 
-    void JavascriptString::ReplaceValueHelper(ScriptContext* scriptContext, Var aValue, JavascriptFunction ** ppReplaceFn, JavascriptString ** ppReplaceString)
+    void JavascriptString::ReplaceValueHelper(ScriptContext* scriptContext, Var aValue, RecyclableObject ** ppReplaceFn, JavascriptString ** ppReplaceString)
     {
         *ppReplaceFn = nullptr;
         *ppReplaceString = nullptr;
 
-        if (VarIs<JavascriptFunction>(aValue))
+        if (JavascriptConversion::IsCallable(aValue))
         {
-            *ppReplaceFn = VarTo<JavascriptFunction>(aValue);
+            *ppReplaceFn = VarTo<RecyclableObject>(aValue);
         }
         else if (VarIs<JavascriptString>(aValue))
         {
@@ -1813,10 +1878,10 @@ case_2:
 
         if (args.Info.Count > 1)
         {
-            idxStart = JavascriptOperators::IsUndefinedObject(args[1], scriptContext) ? 0 : ConvertToIndex(args[1], scriptContext);
+            idxStart = JavascriptOperators::IsUndefinedObject(args[1]) ? 0 : ConvertToIndex(args[1], scriptContext);
             if (args.Info.Count > 2)
             {
-                idxEnd = JavascriptOperators::IsUndefinedObject(args[2], scriptContext) ? len : ConvertToIndex(args[2], scriptContext);
+                idxEnd = JavascriptOperators::IsUndefinedObject(args[2]) ? len : ConvertToIndex(args[2], scriptContext);
             }
         }
 
@@ -1881,7 +1946,7 @@ case_2:
         else
         {
             uint32 limit;
-            if (args.Info.Count < 3 || JavascriptOperators::IsUndefinedObject(args[2], scriptContext))
+            if (args.Info.Count < 3 || JavascriptOperators::IsUndefinedObject(args[2]))
             {
                 limit = UINT_MAX;
             }
@@ -1943,10 +2008,10 @@ case_2:
 
         if (args.Info.Count > 1)
         {
-            idxStart = JavascriptOperators::IsUndefinedObject(args[1], scriptContext) ? 0 : ConvertToIndex(args[1], scriptContext);
+            idxStart = JavascriptOperators::IsUndefinedObject(args[1]) ? 0 : ConvertToIndex(args[1], scriptContext);
             if (args.Info.Count > 2)
             {
-                idxEnd = JavascriptOperators::IsUndefinedObject(args[2], scriptContext) ? len : ConvertToIndex(args[2], scriptContext);
+                idxEnd = JavascriptOperators::IsUndefinedObject(args[2]) ? len : ConvertToIndex(args[2], scriptContext);
             }
         }
 
@@ -1992,10 +2057,10 @@ case_2:
 
         if (args.Info.Count > 1)
         {
-            idxStart = JavascriptOperators::IsUndefinedObject(args[1], scriptContext) ? 0 : ConvertToIndex(args[1], scriptContext);
+            idxStart = JavascriptOperators::IsUndefinedObject(args[1]) ? 0 : ConvertToIndex(args[1], scriptContext);
             if (args.Info.Count > 2)
             {
-                idxEnd = JavascriptOperators::IsUndefinedObject(args[2], scriptContext) ? len : ConvertToIndex(args[2], scriptContext);
+                idxEnd = JavascriptOperators::IsUndefinedObject(args[2]) ? len : ConvertToIndex(args[2], scriptContext);
             }
         }
         if (idxStart < 0)
@@ -2089,7 +2154,7 @@ case_2:
         }
 
         JavascriptString * fillerString = nullptr;
-        if (args.Info.Count > 2 && !JavascriptOperators::IsUndefinedObject(args[2], scriptContext))
+        if (args.Info.Count > 2 && !JavascriptOperators::IsUndefinedObject(args[2]))
         {
             JavascriptString *argStr = JavascriptConversion::ToString(args[2], scriptContext);
             if (argStr->GetLength() > 0)
@@ -2509,9 +2574,18 @@ case_2:
 
         if (args.Info.Count > 1)
         {
-            if (!JavascriptOperators::IsUndefinedObject(args[1], scriptContext))
+            if (TaggedInt::Is(args[1]))
             {
-                double countDbl = JavascriptConversion::ToInteger(args[1], scriptContext);
+                int32 signedCount = TaggedInt::ToInt32(args[1]);
+                if (signedCount < 0)
+                {
+                    JavascriptError::ThrowRangeError(scriptContext, JSERR_ArgumentOutOfRange, _u("String.prototype.repeat"));
+                }
+                count = (uint32) signedCount;
+            }
+            else if (!JavascriptOperators::IsUndefinedObject(args[1]))
+            {
+                double countDbl = JavascriptConversion::ToInteger_Full(args[1], scriptContext);
                 if (JavascriptNumber::IsPosInf(countDbl) || countDbl < 0.0)
                 {
                     JavascriptError::ThrowRangeError(scriptContext, JSERR_ArgumentOutOfRange, _u("String.prototype.repeat"));
@@ -2542,7 +2616,14 @@ case_2:
         const char16* currentRawString = currentString->GetString();
         charcount_t currentLength = currentString->GetLength();
 
-        charcount_t finalBufferCount = UInt32Math::Add(UInt32Math::Mul(count, currentLength), 1);
+        charcount_t finalBufferCount = 0;
+        bool hasOverflow = UInt32Math::Mul(count, currentLength, &finalBufferCount);
+        if (hasOverflow || !IsValidCharCount(finalBufferCount))
+        {
+            JavascriptError::ThrowRangeError(scriptContext, JSERR_OutOfBoundString);
+        }
+        finalBufferCount = finalBufferCount + 1;
+
         char16* buffer = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, finalBufferCount);
 
         if (currentLength == 1)
@@ -2600,7 +2681,7 @@ case_2:
 
         if (args.Info.Count > 2)
         {
-            if (!JavascriptOperators::IsUndefinedObject(args[2], scriptContext))
+            if (!JavascriptOperators::IsUndefinedObject(args[2]))
             {
                 startPosition = ConvertToIndex(args[2], scriptContext); // this is to adjust corner cases like MAX_VALUE
                 startPosition = min(max(startPosition, 0), thisStrLen);
@@ -2655,7 +2736,7 @@ case_2:
 
         if (args.Info.Count > 2)
         {
-            if (!JavascriptOperators::IsUndefinedObject(args[2], scriptContext))
+            if (!JavascriptOperators::IsUndefinedObject(args[2]))
             {
                 endPosition = ConvertToIndex(args[2], scriptContext); // this is to adjust corner cases like MAX_VALUE
                 endPosition = min(max(endPosition, 0), thisStrLen);

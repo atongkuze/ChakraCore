@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeBasePch.h"
@@ -218,7 +219,12 @@ namespace Js
     uint
     ParseableFunctionInfo::PrintableStartOffset() const
     {
-        return this->m_cbStartPrintOffset;
+        PrintOffsets* printOffsets = this->GetPrintOffsets();
+        if (printOffsets != nullptr)
+        {
+            return printOffsets->cbStartPrintOffset;
+        }
+        return this->m_cbStartOffset;
     }
 
     void ParseableFunctionInfo::RegisterFuncToDiag(ScriptContext * scriptContext, char16 const * pszTitle)
@@ -331,6 +337,18 @@ namespace Js
 
         // No offset found in the range.
         return FALSE;
+    }
+
+    bool
+    FunctionBody::SkipAutoProfileForCoroutine() const
+    {
+        return this->IsCoroutine() && CONFIG_FLAG(JitES6Generators);
+    }
+
+    bool
+    FunctionBody::IsGeneratorAndJitIsDisabled() const
+    {
+        return this->IsCoroutine() && !(CONFIG_FLAG(JitES6Generators) && !this->GetHasTry() && !this->IsInDebugMode() && !this->IsModule());
     }
 
     ScriptContext* EntryPointInfo::GetScriptContext()
@@ -1514,6 +1532,7 @@ namespace Js
         CopyDeferParseField(m_grfscr);
         other->SetScopeInfo(this->GetScopeInfo());
         other->SetDeferredStubs(this->GetDeferredStubs());
+        other->SetPrintOffsets(this->GetPrintOffsets());
         CopyDeferParseField(m_utf8SourceHasBeenSet);
 #if DBG
         CopyDeferParseField(deferredParseNextFunctionId);
@@ -1537,7 +1556,6 @@ namespace Js
         CopyDeferParseField(m_lineNumber);
         CopyDeferParseField(m_columnNumber);
         CopyDeferParseField(m_cbStartOffset);
-        CopyDeferParseField(m_cbStartPrintOffset);
         CopyDeferParseField(m_cbLength);
 
         this->CopyNestedArray(other);
@@ -1641,7 +1659,6 @@ namespace Js
       m_cbLength(0),
       m_cchStartOffset(0),
       m_cbStartOffset(0),
-      m_cbStartPrintOffset(0),
       m_lineNumber(0),
       m_columnNumber(0),
       m_isEval(false),
@@ -2448,6 +2465,33 @@ namespace Js
                         grfscr &= ~fscrDeferredFncIsGenerator;
                     }
 
+                    if (funcBody->IsClassConstructor())
+                    {
+                        grfscr |= fscrDeferredFncIsClassConstructor;
+                    }
+                    else
+                    {
+                        grfscr &= ~fscrDeferredFncIsClassConstructor;
+                    }
+
+                    if (funcBody->IsBaseClassConstructor())
+                    {
+                        grfscr |= fscrDeferredFncIsBaseClassConstructor;
+                    }
+                    else
+                    {
+                        grfscr &= ~fscrDeferredFncIsBaseClassConstructor;
+                    }
+
+                    if (funcBody->IsClassMethod())
+                    {
+                        grfscr |= fscrDeferredFncIsClassMember;
+                    }
+                    else
+                    {
+                        grfscr &= ~fscrDeferredFncIsClassMember;
+                    }
+
                     if (isDebugOrAsmJsReparse)
                     {
                         // Disable deferred parsing if not DeferNested, or doing a debug/asm.js re-parse
@@ -2748,6 +2792,7 @@ namespace Js
         if (srcName == Js::Constants::GlobalFunction ||
             srcName == Js::Constants::AnonymousFunction ||
             srcName == Js::Constants::GlobalCode ||
+            srcName == Js::Constants::ModuleCode ||
             srcName == Js::Constants::Anonymous ||
             srcName == Js::Constants::UnknownScriptCode ||
             srcName == Js::Constants::FunctionCode)
@@ -2882,8 +2927,15 @@ namespace Js
             }
             Assert(node->cbStringMin <= node->cbMin);
             this->m_cbStartOffset = (uint)cbMin;
-            this->m_cbStartPrintOffset = (uint)node->cbStringMin;
             this->m_cbLength = (uint)lengthInBytes;
+
+            if (node->cbStringMin != node->cbMin)
+            {
+                PrintOffsets* printOffsets = RecyclerNewLeaf(this->m_scriptContext->GetRecycler(), PrintOffsets);
+                printOffsets->cbStartPrintOffset = (uint)node->cbStringMin;
+                printOffsets->cbEndPrintOffset = (uint)node->cbStringLim;
+                this->SetPrintOffsets(printOffsets);
+            }
 
             Assert(this->m_utf8SourceInfo != nullptr);
             this->m_utf8SourceHasBeenSet = true;
@@ -2940,7 +2992,6 @@ namespace Js
             this->m_columnNumber = 0;
 
             this->m_cbStartOffset = 0;
-            this->m_cbStartPrintOffset = 0;
             this->m_cbLength = 0;
 
             this->m_utf8SourceHasBeenSet = true;
@@ -4360,7 +4411,13 @@ namespace Js
     void FunctionBody::RecordIntConstant(RegSlot location, unsigned int val)
     {
         ScriptContext *scriptContext = this->GetScriptContext();
+#ifdef ENABLE_TEST_HOOKS
+        Var intConst = scriptContext->GetConfig()->Force32BitByteCode() ?
+            JavascriptNumber::ToVarFor32BitBytecode((int32)val, scriptContext) :
+            JavascriptNumber::ToVar((int32)val, scriptContext);
+#else
         Var intConst = JavascriptNumber::ToVar((int32)val, scriptContext);
+#endif
         this->RecordConstant(location, intConst);
     }
 
@@ -4586,7 +4643,6 @@ namespace Js
             Output::Print(_u("\n\n  Line %3d: "), line + 1);
             // Need to match up cchStartOffset to appropriate cbStartOffset given function's cbStartOffset and cchStartOffset
             size_t utf8SrcStartIdx = utf8::CharacterIndexToByteIndex(source, sourceInfo->GetCbLength(), cchStartOffset, this->m_cbStartOffset, this->m_cchStartOffset);
-
             size_t utf8SrcEndIdx = StartOffset() + LengthInBytes();
             char16* utf16Buf = HeapNewArray(char16, utf8SrcEndIdx - utf8SrcStartIdx + 2); 
             size_t utf16BufSz = utf8::DecodeUnitsIntoAndNullTerminateNoAdvance(utf16Buf, source + utf8SrcStartIdx, source + utf8SrcEndIdx, utf8::DecodeOptions::doDefault);
@@ -7096,8 +7152,7 @@ namespace Js
             !GetScriptContext()->IsScriptContextInDebugMode() &&
             DoInterpreterProfile() &&
 #pragma warning(suppress: 6235) // (<non-zero constant> || <expression>) is always a non-zero constant.
-            (!CONFIG_FLAG(NewSimpleJit) || DoInterpreterAutoProfile()) &&
-            !IsCoroutine(); // Generator JIT requires bailout which SimpleJit cannot do since it skips GlobOpt
+            (!CONFIG_FLAG(NewSimpleJit) || DoInterpreterAutoProfile());
     }
 
     bool FunctionBody::DoSimpleJitWithLock() const
@@ -7111,8 +7166,7 @@ namespace Js
             !this->IsInDebugMode() &&
             DoInterpreterProfileWithLock() &&
 #pragma warning(suppress: 6235) // (<non-zero constant> || <expression>) is always a non-zero constant.
-            (!CONFIG_FLAG(NewSimpleJit) || DoInterpreterAutoProfile()) &&
-            !IsCoroutine(); // Generator JIT requires bailout which SimpleJit cannot do since it skips GlobOpt
+            (!CONFIG_FLAG(NewSimpleJit) || DoInterpreterAutoProfile());
     }
 
     bool FunctionBody::DoSimpleJitDynamicProfile() const

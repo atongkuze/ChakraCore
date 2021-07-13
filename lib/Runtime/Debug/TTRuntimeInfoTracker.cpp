@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeDebugPch.h"
@@ -785,16 +786,14 @@ namespace TTD
 
         this->EnqueueRootPathObject(_u("_throwTypeErrorRestrictedPropertyAccessor"), ctx->GetLibrary()->GetThrowTypeErrorRestrictedPropertyAccessorFunction());
 
-        if(ctx->GetConfig()->IsES6PromiseEnabled())
-        {
-            this->EnqueueRootPathObject(_u("_identityFunction"), ctx->GetLibrary()->GetIdentityFunction());
-            this->EnqueueRootPathObject(_u("_throwerFunction"), ctx->GetLibrary()->GetThrowerFunction());
-        }
+        this->EnqueueRootPathObject(_u("_identityFunction"), ctx->GetLibrary()->GetIdentityFunction());
+        this->EnqueueRootPathObject(_u("_throwerFunction"), ctx->GetLibrary()->GetThrowerFunction());
+
        // ArrayIteratorPrototype is not created when we have JsBuiltins, it it created on-demand only
 #ifdef ENABLE_JS_BUILTINS
         if (ctx->IsJsBuiltInEnabled())
         {
-            ctx->GetLibrary()->EnsureBuiltInEngineIsReady();
+            ctx->GetLibrary()->EnsureArrayBuiltInsAreReady();
         }
 #endif
         this->EnqueueRootPathObject(_u("_arrayIteratorPrototype"), ctx->GetLibrary()->GetArrayIteratorPrototype());

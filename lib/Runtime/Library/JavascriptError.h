@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -41,7 +42,7 @@ namespace Js
 
         void SetNotEnumerable(PropertyId propertyId);
 
-        static Var NewInstance(RecyclableObject* function, JavascriptError* pError, CallInfo callInfo, Var newTarget, Var message);
+        static Var NewInstance(RecyclableObject* function, JavascriptError* pError, CallInfo callInfo, Var newTarget, Var message, Var options);
         class EntryInfo
         {
         public:
@@ -52,12 +53,10 @@ namespace Js
             static FunctionInfo NewSyntaxErrorInstance;
             static FunctionInfo NewTypeErrorInstance;
             static FunctionInfo NewURIErrorInstance;
+            static FunctionInfo NewAggregateErrorInstance;
             static FunctionInfo NewWebAssemblyCompileErrorInstance;
             static FunctionInfo NewWebAssemblyRuntimeErrorInstance;
             static FunctionInfo NewWebAssemblyLinkErrorInstance;
-#ifdef ENABLE_PROJECTION
-            static FunctionInfo NewWinRTErrorInstance;
-#endif
             static FunctionInfo ToString;
         };
 
@@ -71,9 +70,6 @@ namespace Js
         static Var NewWebAssemblyCompileErrorInstance(RecyclableObject* function, CallInfo callInfo, ...);
         static Var NewWebAssemblyRuntimeErrorInstance(RecyclableObject* function, CallInfo callInfo, ...);
         static Var NewWebAssemblyLinkErrorInstance(RecyclableObject* function, CallInfo callInfo, ...);
-#ifdef ENABLE_PROJECTION
-        static Var NewWinRTErrorInstance(RecyclableObject* function, CallInfo callInfo, ...);
-#endif
 
         static Var EntryToString(RecyclableObject* function, CallInfo callInfo, ...);
 
@@ -113,6 +109,7 @@ namespace Js
         static void SetErrorMessageProperties(JavascriptError *pError, HRESULT errCode, PCWSTR message, ScriptContext* scriptContext);
         static void SetErrorMessage(JavascriptError *pError, HRESULT errCode, PCWSTR varName, ScriptContext* scriptContext);
         static void SetErrorMessage(JavascriptError *pError, HRESULT hr, ScriptContext* scriptContext, va_list argList);
+        static void SetErrorMessage(JavascriptError *pError, HRESULT hr, ScriptContext* scriptContext, ...);
         static void SetErrorType(JavascriptError *pError, ErrorTypeEnum errorType);
 
         static bool ThrowCantAssign(PropertyOperationFlags flags, ScriptContext* scriptContext, PropertyId propertyId);
@@ -148,6 +145,11 @@ namespace Js
         JavascriptError* CloneErrorMsgAndNumber(JavascriptLibrary* targetJavascriptLibrary);
         static void TryThrowTypeError(ScriptContext * checkScriptContext, ScriptContext * scriptContext, int32 hCode, PCWSTR varName = nullptr);
         static JavascriptError* CreateFromCompileScriptException(ScriptContext* scriptContext, CompileScriptException* cse, const WCHAR * sourceUrl = nullptr);
+
+        static Var NewAggregateErrorInstance(RecyclableObject* function, CallInfo callinfo, ...);
+
+        static void SetErrorsList(JavascriptError* pError, SList<Var, Recycler>* errorsList, ScriptContext* scriptContext);
+        static void SetErrorsList(JavascriptError* pError, JavascriptArray* errors, ScriptContext* scriptContext);
 
     private:
 

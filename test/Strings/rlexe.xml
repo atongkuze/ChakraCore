@@ -2,6 +2,12 @@
 <regress-exe>
   <test>
     <default>
+      <files>string_at.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>charAt.js</files>
       <baseline>charAt.baseline</baseline>
     </default>
@@ -10,6 +16,11 @@
     <default>
       <files>fromCharCode.js</files>
       <baseline>fromCharCode.baseline</baseline>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>fromCodePoint.js</files>
     </default>
   </test>
   <test>
@@ -261,6 +272,12 @@
     <default>
       <files>null_embedded_string_toDouble.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>constructorConcat.js</files>
+      <compile-flags>-lic:1 -mic:1 -bgjit-</compile-flags>
     </default>
   </test>
 </regress-exe>

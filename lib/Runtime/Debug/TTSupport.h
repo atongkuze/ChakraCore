@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -250,12 +251,15 @@ namespace TTD
             SnapPromiseResolveOrRejectFunctionObject,
             SnapPromiseReactionTaskFunctionObject,
             SnapPromiseAllResolveElementFunctionObject,
+            SnapPromiseAllSettledResolveOrRejectElementFunctionObject,
+            SnapPromiseAnyRejectElementFunctionObject,
             SnapGeneratorFunction,
             SnapGeneratorVirtualScriptFunction,
             SnapAsyncFunction,
             SnapGenerator,
-            JavascriptPromiseAsyncSpawnExecutorFunction,
-            JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction,
+            SnapAwaitObject,
+            JavascriptAsyncSpawnExecutorFunction,
+            JavascriptAsyncSpawnStepFunction,
 
             //objects that should always be well known but which may have other info we want to restore
             SnapWellKnownObject,

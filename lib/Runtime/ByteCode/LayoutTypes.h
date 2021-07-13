@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 //
@@ -46,8 +47,12 @@ LAYOUT_TYPE                 (Empty)
 LAYOUT_TYPE_WMS             (Reg1)
 LAYOUT_TYPE_PROFILED_WMS    (Reg2)
 LAYOUT_TYPE_PROFILED_WMS    (Reg3)
+LAYOUT_TYPE_WMS             (Reg3U)
 LAYOUT_TYPE_WMS             (Reg4)
+LAYOUT_TYPE_WMS             (Reg4U)
+LAYOUT_TYPE_WMS             (Reg5U)
 LAYOUT_TYPE_PROFILED_WMS    (Reg1Unsigned1)
+LAYOUT_TYPE_WMS             (Reg2U)
 LAYOUT_TYPE_WMS             (Reg2B1)
 LAYOUT_TYPE_WMS             (Reg3B1)
 LAYOUT_TYPE_WMS             (Reg3C)
@@ -73,7 +78,6 @@ LAYOUT_TYPE_PROFILED2_WMS   (CallIExtended)
 LAYOUT_TYPE_PROFILED_WMS    (CallIExtendedFlags)
 LAYOUT_TYPE_PROFILED_WMS    (CallIExtendedWithICIndex)
 LAYOUT_TYPE_PROFILED_WMS    (CallIExtendedFlagsWithICIndex)
-LAYOUT_TYPE_WMS             (Class)
 LAYOUT_TYPE_PROFILED_WMS    (ElementI)
 LAYOUT_TYPE_WMS             (ElementUnsigned1)
 LAYOUT_TYPE_WMS             (ElementC)

@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
@@ -8,12 +9,17 @@ namespace Js
 {
     bool JavascriptProxy::IsRevoked() const
     {
-        return (target == nullptr);
+        if (target == nullptr)
+        {
+            Assert(handler == nullptr);
+            return true;
+        }
+        return false;
     }
 
     RecyclableObject* JavascriptProxy::GetTarget()
     {
-        if (target == nullptr)
+        if (IsRevoked())
         {
             JavascriptError::ThrowTypeError(GetScriptContext(), JSERR_ErrorOnRevokedProxy, _u(""));
         }
@@ -22,7 +28,7 @@ namespace Js
 
     RecyclableObject* JavascriptProxy::GetHandler()
     {
-        if (handler == nullptr)
+        if (IsRevoked())
         {
             JavascriptError::ThrowTypeError(GetScriptContext(), JSERR_ErrorOnRevokedProxy, _u(""));
         }
@@ -74,7 +80,7 @@ namespace Js
 #endif
         if (VarIs<JavascriptProxy>(target))
         {
-            if (VarTo<JavascriptProxy>(target)->target == nullptr)
+            if (UnsafeVarTo<JavascriptProxy>(target)->IsRevoked())
             {
                 JavascriptError::ThrowTypeError(scriptContext, JSERR_InvalidProxyArgument, _u("target"));
             }
@@ -87,7 +93,7 @@ namespace Js
         handler = VarTo<DynamicObject>(args[2]);
         if (VarIs<JavascriptProxy>(handler))
         {
-            if (VarTo<JavascriptProxy>(handler)->handler == nullptr)
+            if (UnsafeVarTo<JavascriptProxy>(handler)->IsRevoked())
             {
                 JavascriptError::ThrowTypeError(scriptContext, JSERR_InvalidProxyArgument, _u("handler"));
             }
@@ -381,6 +387,8 @@ namespace Js
             }
         }
         propertyDescriptor->SetValue(getGetResult);
+
+        threadContext->AddImplicitCallFlags(Js::ImplicitCall_External);
 
         return TRUE;
     }
@@ -967,7 +975,7 @@ namespace Js
         // 1. Assert: Either Type(V) is Object or Type(V) is Null.
         // 2. Let handler be the value of the[[ProxyHandler]] internal slot of O.
         // 3. If handler is null, then throw a TypeError exception.
-        if (this->handler == nullptr)
+        if (IsRevoked())
         {
             // the proxy has been revoked; TypeError.
             if (!threadContext->RecordImplicitException())
@@ -1054,7 +1062,7 @@ namespace Js
     BOOL JavascriptProxy::Equals(__in Var other, __out BOOL* value, ScriptContext* requestContext)
     {
         //RecyclableObject* targetObj;
-        if (this->target == nullptr)
+        if (IsRevoked())
         {
             // the proxy has been revoked; TypeError.
             JavascriptError::ThrowTypeError(requestContext, JSERR_ErrorOnRevokedProxy, _u("equal"));
@@ -1075,7 +1083,7 @@ namespace Js
     {
         *value = FALSE;
         //RecyclableObject* targetObj;
-        if (this->target == nullptr)
+        if (IsRevoked())
         {
             // the proxy has been revoked; TypeError.
             JavascriptError::ThrowTypeError(requestContext, JSERR_ErrorOnRevokedProxy, _u("strict equal"));
@@ -1599,7 +1607,7 @@ namespace Js
     Var JavascriptProxy::ToString(ScriptContext* scriptContext)
     {
         //RecyclableObject* targetObj;
-        if (this->handler == nullptr)
+        if (IsRevoked())
         {
             ThreadContext* threadContext = GetScriptContext()->GetThreadContext();
             // the proxy has been revoked; TypeError.
@@ -1615,7 +1623,7 @@ namespace Js
     const JavascriptProxy* JavascriptProxy::UnwrapNestedProxies(const JavascriptProxy* proxy)
     {
         // continue while we have a proxy that is not revoked
-        while (proxy->handler != nullptr)
+        while (!proxy->IsRevoked())
         {
             JavascriptProxy* nestedProxy = JavascriptOperators::TryFromVar<JavascriptProxy>(proxy->target);
             if (nestedProxy == nullptr)
@@ -1634,7 +1642,7 @@ namespace Js
         const JavascriptProxy* proxy = UnwrapNestedProxies(this);
 
         //RecyclableObject* targetObj;
-        if (proxy->handler == nullptr)
+        if (proxy->IsRevoked())
         {
             ThreadContext* threadContext = GetScriptContext()->GetThreadContext();
             // the proxy has been revoked; TypeError.
@@ -1648,7 +1656,7 @@ namespace Js
     RecyclableObject* JavascriptProxy::ToObject(ScriptContext * requestContext)
     {
         //RecyclableObject* targetObj;
-        if (this->handler == nullptr)
+        if (IsRevoked())
         {
             ThreadContext* threadContext = GetScriptContext()->GetThreadContext();
             // the proxy has been revoked; TypeError.
@@ -1914,6 +1922,9 @@ namespace Js
                 }
             }
         }
+
+        threadContext->AddImplicitCallFlags(Js::ImplicitCall_External);
+
         return TRUE;
 
     }
@@ -1922,7 +1933,7 @@ namespace Js
     {
         //2. Let handler be the value of the[[ProxyHandler]] internal slot of O.
         //3. If handler is null, then throw a TypeError exception.
-        if (this->handler == nullptr)
+        if (IsRevoked())
         {
             // the proxy has been revoked; TypeError.
             JavascriptError::ThrowTypeError(requestContext, JSERR_ErrorOnRevokedProxy, requestContext->GetPropertyName(methodId)->GetBuffer());
@@ -2145,7 +2156,7 @@ namespace Js
                 {
                     BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
                     {
-                        newThisObject = JavascriptOperators::NewScObjectNoCtor(targetObj, scriptContext);
+                        newThisObject = JavascriptOperators::NewScObjectNoCtorCommon(proxy, scriptContext, false);
                     }
                     END_SAFE_REENTRANT_CALL
                     args.Values[0] = newThisObject;

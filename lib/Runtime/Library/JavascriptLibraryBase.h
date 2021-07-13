@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -39,6 +40,7 @@ namespace Js
 
         JavascriptSymbol* GetSymbolHasInstance() { return symbolHasInstance; }
         JavascriptSymbol* GetSymbolIsConcatSpreadable() { return symbolIsConcatSpreadable; }
+        JavascriptSymbol* GetSymbolAsyncIterator() { return symbolAsyncIterator; }
         JavascriptSymbol* GetSymbolIterator() { return symbolIterator; }
         JavascriptSymbol* GetSymbolToPrimitive() { return symbolToPrimitive; }
         JavascriptSymbol* GetSymbolToStringTag() { return symbolToStringTag; }
@@ -74,6 +76,7 @@ namespace Js
         JavascriptFunction* GetPromiseConstructor() const { return promiseConstructor; }
         JavascriptFunction* GetGeneratorFunctionConstructor() const { return generatorFunctionConstructor; }
         JavascriptFunction* GetAsyncFunctionConstructor() const { return asyncFunctionConstructor; }
+        JavascriptFunction* GetAsyncGeneratorFunctionConstructor() const { return asyncGeneratorFunctionConstructor; }
 
         JavascriptFunction* GetErrorConstructor() const { return errorConstructor; }
         JavascriptFunction* GetEvalErrorConstructor() const { return evalErrorConstructor; }
@@ -82,6 +85,7 @@ namespace Js
         JavascriptFunction* GetSyntaxErrorConstructor() const { return syntaxErrorConstructor; }
         JavascriptFunction* GetTypeErrorConstructor() const { return typeErrorConstructor; }
         JavascriptFunction* GetURIErrorConstructor() const { return uriErrorConstructor; }
+        JavascriptFunction* GetAggregateErrorConstructor() const { return aggregateErrorConstructor;  }
         JavascriptFunction* GetPromiseResolve() const { return promiseResolveFunction; }
         JavascriptFunction* GetPromiseThen() const { return promiseThenFunction; }
         JavascriptFunction* GetJSONStringify() const { return jsonStringifyFunction; }
@@ -102,7 +106,7 @@ namespace Js
 #ifdef ENABLE_INTL_OBJECT
         DynamicObject* GetIntlObject() { return IntlObject; }
 #endif
-#if defined(ENABLE_INTL_OBJECT)  || defined(ENABLE_JS_BUILTINS) || defined(ENABLE_PROJECTION)
+#if defined(ENABLE_INTL_OBJECT)  || defined(ENABLE_JS_BUILTINS)
         EngineInterfaceObject* GetEngineInterfaceObject() { return engineInterfaceObject; }
 #endif
 
@@ -132,6 +136,7 @@ namespace Js
         DynamicObject* GetWeakMapPrototype() { return weakMapPrototype; }
         DynamicObject* GetWeakSetPrototype() { return weakSetPrototype; }
         DynamicObject* GetSymbolPrototype() { return symbolPrototype; }
+        DynamicObject* GetAsyncIteratorPrototype() const { return asyncIteratorPrototype; }
         DynamicObject* GetArrayIteratorPrototype() const { return arrayIteratorPrototype; }
         DynamicObject* GetMapIteratorPrototype() const { return mapIteratorPrototype; }
         DynamicObject* GetSetIteratorPrototype() const { return setIteratorPrototype; }
@@ -141,6 +146,7 @@ namespace Js
         DynamicObject* GetGeneratorFunctionPrototype() const { return generatorFunctionPrototype; }
         DynamicObject* GetGeneratorPrototype() const { return generatorPrototype; }
         DynamicObject* GetAsyncFunctionPrototype() const { return asyncFunctionPrototype; }
+        DynamicObject* GetAsyncGeneratorFunctionPrototype() const { return asyncGeneratorFunctionPrototype; }
 
         DynamicObject* GetErrorPrototype() const { return errorPrototype; }
         DynamicObject* GetEvalErrorPrototype() const { return evalErrorPrototype; }
@@ -149,6 +155,7 @@ namespace Js
         DynamicObject* GetSyntaxErrorPrototype() const { return syntaxErrorPrototype; }
         DynamicObject* GetTypeErrorPrototype() const { return typeErrorPrototype; }
         DynamicObject* GetURIErrorPrototype() const { return uriErrorPrototype; }
+        DynamicObject* GetAggregateErrorPrototype() const { return aggregateErrorPrototype;  }
         PropertyId GetPropertyIdSymbolIterator() { return PropertyIds::_symbolIterator; };
         PropertyId GetPropertyIdSymbolToStringTag() { return PropertyIds::_symbolToStringTag; };
         PropertyId GetPropertyIdSymbolUnscopables() { return PropertyIds::_symbolUnscopables; };
@@ -192,10 +199,12 @@ namespace Js
         Field(RuntimeFunction*) syntaxErrorConstructor;
         Field(RuntimeFunction*) typeErrorConstructor;
         Field(RuntimeFunction*) uriErrorConstructor;
+        Field(RuntimeFunction*) aggregateErrorConstructor;
         Field(RuntimeFunction*) proxyConstructor;
         Field(RuntimeFunction*) promiseConstructor;
         Field(RuntimeFunction*) generatorFunctionConstructor;
         Field(RuntimeFunction*) asyncFunctionConstructor;
+        Field(RuntimeFunction*) asyncGeneratorFunctionConstructor;
 
         Field(JavascriptFunction*) defaultAccessorFunction;
         Field(JavascriptFunction*) stackTraceAccessorFunction;
@@ -220,7 +229,7 @@ namespace Js
 #ifdef ENABLE_INTL_OBJECT
         Field(DynamicObject*) IntlObject;
 #endif
-#if defined(ENABLE_INTL_OBJECT) || defined(ENABLE_JS_BUILTINS)  || defined(ENABLE_PROJECTION)
+#if defined(ENABLE_INTL_OBJECT) || defined(ENABLE_JS_BUILTINS)
         Field(EngineInterfaceObject*) engineInterfaceObject;
 #endif
         Field(DynamicObject*) reflectObject;
@@ -257,15 +266,19 @@ namespace Js
         Field(DynamicObject*) weakMapPrototype;
         Field(DynamicObject*) weakSetPrototype;
         Field(DynamicObject*) symbolPrototype;
+        Field(DynamicObject*) asyncIteratorPrototype;           // aka %AsyncIteratorPrototype%
         Field(DynamicObject*) iteratorPrototype;           // aka %IteratorPrototype%
         Field(DynamicObject*) arrayIteratorPrototype;
         Field(DynamicObject*) mapIteratorPrototype;
         Field(DynamicObject*) setIteratorPrototype;
         Field(DynamicObject*) stringIteratorPrototype;
         Field(DynamicObject*) promisePrototype;
-        Field(DynamicObject*) generatorFunctionPrototype;  // aka %Generator%
-        Field(DynamicObject*) generatorPrototype;          // aka %GeneratorPrototype%
-        Field(DynamicObject*) asyncFunctionPrototype;      // aka %AsyncFunctionPrototype%
+        Field(DynamicObject*) generatorFunctionPrototype;      // aka %Generator%
+        Field(DynamicObject*) generatorPrototype;              // aka %GeneratorPrototype%
+        Field(DynamicObject*) asyncFunctionPrototype;          // aka %AsyncFunctionPrototype%
+        Field(DynamicObject*) asyncGeneratorPrototype;         // aka %AsyncGeneratorPrototype%
+        Field(DynamicObject*) asyncGeneratorFunctionPrototype; // aka %AsyncGeneratorFunctionPrototype%
+        Field(DynamicObject*) asyncFromSyncIteratorProtototype;
 
         Field(DynamicObject*) errorPrototype;
         Field(DynamicObject*) evalErrorPrototype;
@@ -274,6 +287,7 @@ namespace Js
         Field(DynamicObject*) syntaxErrorPrototype;
         Field(DynamicObject*) typeErrorPrototype;
         Field(DynamicObject*) uriErrorPrototype;
+        Field(DynamicObject*) aggregateErrorPrototype;
 
         //SIMD Prototypes
         Field(DynamicObject*) simdBool8x16Prototype;
@@ -301,6 +315,7 @@ namespace Js
         Field(RecyclableObject*) undefinedValue;
         Field(RecyclableObject*) nullValue;
 
+        Field(JavascriptSymbol*) symbolAsyncIterator;
         Field(JavascriptSymbol*) symbolHasInstance;
         Field(JavascriptSymbol*) symbolIsConcatSpreadable;
         Field(JavascriptSymbol*) symbolIterator;

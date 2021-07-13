@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
@@ -9,25 +10,32 @@ using namespace Js;
 Var JavascriptObject::NewInstance(RecyclableObject* function, CallInfo callInfo, ...)
 {
     PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
-
     ARGUMENTS(args, callInfo);
     ScriptContext* scriptContext = function->GetScriptContext();
+    JavascriptLibrary* library = scriptContext->GetLibrary();
 
     AssertMsg(args.HasArg(), "Should always have implicit 'this'");
 
-    // SkipDefaultNewObject function flag should have prevented the default object from
-    // being created, except when call true a host dispatch.
     Var newTarget = args.GetNewTarget();
-    bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
-
-    if (args.Info.Count > 1)
+    if (JavascriptOperators::GetAndAssertIsConstructorSuperCall(args) &&
+        newTarget != function)
     {
-        switch (JavascriptOperators::GetTypeId(args[1]))
-        {
+        return JavascriptOperators::OrdinaryCreateFromConstructor(
+            VarTo<RecyclableObject>(newTarget),
+            library->CreateObject(true),
+            nullptr,
+            scriptContext);
+    }
+
+    Var arg = args.Info.Count > 1 ? args[1] : library->GetUndefined();
+    switch (JavascriptOperators::GetTypeId(arg))
+    {
         case TypeIds_Undefined:
         case TypeIds_Null:
-            // Break to return a new object
-            break;
+            // Null and undefined result in a new object
+            return (callInfo.Flags & CallFlags_NotUsed)
+                ? arg
+                : library->CreateObject(true);
 
         case TypeIds_StringObject:
         case TypeIds_Function:
@@ -43,32 +51,14 @@ Var JavascriptObject::NewInstance(RecyclableObject* function, CallInfo callInfo,
         case TypeIds_Arguments:
         case TypeIds_ActivationObject:
         case TypeIds_SymbolObject:
-            return isCtorSuperCall ?
-                JavascriptOperators::OrdinaryCreateFromConstructor(VarTo<RecyclableObject>(newTarget), VarTo<RecyclableObject>(args[1]), nullptr, scriptContext) :
-                args[1];
-
-        default:
-            RecyclableObject* result = nullptr;
-            if (FALSE == JavascriptConversion::ToObject(args[1], scriptContext, &result))
-            {
-                // JavascriptConversion::ToObject should only return FALSE for null and undefined.
-                Assert(false);
-            }
-
-            return isCtorSuperCall ?
-                JavascriptOperators::OrdinaryCreateFromConstructor(VarTo<RecyclableObject>(newTarget), result, nullptr, scriptContext) :
-                result;
-        }
+            // Since we know this is an object, we can skip ToObject
+            return arg;
     }
 
-    if (callInfo.Flags & CallFlags_NotUsed)
-    {
-        return args[0];
-    }
-    Var newObj = scriptContext->GetLibrary()->CreateObject(true);
-    return isCtorSuperCall ?
-        JavascriptOperators::OrdinaryCreateFromConstructor(VarTo<RecyclableObject>(newTarget), VarTo<RecyclableObject>(newObj), nullptr, scriptContext) :
-        newObj;
+    RecyclableObject* result = nullptr;
+    JavascriptConversion::ToObject(arg, scriptContext, &result);
+    Assert(result);
+    return result;
 }
 
 Var JavascriptObject::EntryHasOwnProperty(RecyclableObject* function, CallInfo callInfo, ...)
@@ -89,15 +79,11 @@ Var JavascriptObject::EntryHasOwnProperty(RecyclableObject* function, CallInfo c
         JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NullOrUndefined, _u("Object.prototype.hasOwnProperty"));
     }
 
-    // no property specified
-    if (args.Info.Count == 1)
-    {
-        return scriptContext->GetLibrary()->GetFalse();
-    }
+    Var propertyName = args.Info.Count == 1 ? scriptContext->GetLibrary()->GetUndefined() : args[1];
 
     const PropertyRecord* propertyRecord;
     PropertyString* propertyString;
-    JavascriptConversion::ToPropertyKey(args[1], scriptContext, &propertyRecord, &propertyString);
+    JavascriptConversion::ToPropertyKey(propertyName, scriptContext, &propertyRecord, &propertyString);
 
     if (JavascriptOperators::HasOwnProperty(dynamicObject, propertyRecord->GetPropertyId(), scriptContext, propertyString))
     {
@@ -107,6 +93,40 @@ Var JavascriptObject::EntryHasOwnProperty(RecyclableObject* function, CallInfo c
     return scriptContext->GetLibrary()->GetFalse();
     JIT_HELPER_END(Object_HasOwnProperty);
 }
+
+Var JavascriptObject::EntryHasOwn(RecyclableObject* function, CallInfo callInfo, ...)
+{
+    JIT_HELPER_REENTRANT_HEADER(Object_HasOwn);
+    PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
+
+    ARGUMENTS(args, callInfo);
+    ScriptContext* scriptContext = function->GetScriptContext();
+
+    Assert(!(callInfo.Flags & CallFlags_New));
+
+    RecyclableObject* dynamicObject = nullptr;
+    // first parameter must exist and be an object coercible or throw type error
+    if (args.Info.Count < 2 || FALSE == JavascriptConversion::ToObject(args[1], scriptContext, &dynamicObject))
+    {
+        JavascriptError::ThrowTypeError(scriptContext, JSERR_FunctionArgument_NeedObject, _u("Object.hasOwn"));
+    }
+
+    // if there is only one parameter use undefined as the property to query
+    Var propertyName = args.Info.Count == 2 ? scriptContext->GetLibrary()->GetUndefined() : args[2];
+
+    const PropertyRecord* propertyRecord;
+    PropertyString* propertyString;
+    JavascriptConversion::ToPropertyKey(propertyName, scriptContext, &propertyRecord, &propertyString);
+
+    if (JavascriptOperators::HasOwnProperty(dynamicObject, propertyRecord->GetPropertyId(), scriptContext, propertyString))
+    {
+        return scriptContext->GetLibrary()->GetTrue();
+    }
+
+    return scriptContext->GetLibrary()->GetFalse();
+    JIT_HELPER_END(Object_HasOwn);
+}
+
 
 Var JavascriptObject::EntryPropertyIsEnumerable(RecyclableObject* function, CallInfo callInfo, ...)
 {
@@ -536,7 +556,6 @@ JavascriptString* JavascriptObject::ToStringTagHelper(Var thisArg, ScriptContext
 
         // 12. Else if O has a [[DateValue]] internal slot, let builtinTag be "Date".
     case TypeIds_Date:
-    case TypeIds_WinRTDate:
         builtInTag = library->GetObjectDateDisplayString();
         break;
 

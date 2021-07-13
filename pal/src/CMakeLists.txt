@@ -173,12 +173,14 @@ add_library(Chakra.Pal
   ${ARCH_SOURCES}
 )
 
+if(EMBED_ICU)
+  add_dependencies(Chakra.Pal ${EMBEDDED_ICU_TARGET})
+endif()
+
 if (NOT STATIC_LIBRARY)
   add_library(Chakra.Pal.Singular
     STATIC
-    ${SOURCES}
-    ${PLATFORM_SOURCES}
-    ${ARCH_SOURCES}
+    $<TARGET_OBJECTS:Chakra.Pal>
   )
 
   if(CC_TARGET_OS_OSX)

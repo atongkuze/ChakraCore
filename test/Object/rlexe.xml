@@ -21,7 +21,6 @@
   <test>
     <default>
       <files>hasOwnProperty.js</files>
-      <baseline>hasOwnProperty.baseline</baseline>
     </default>
   </test>
   <test>
@@ -337,7 +336,7 @@
   <test>
     <default>
       <files>objectCreateNull.js</files>
-      <compile-flags>-ES6Promise -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>

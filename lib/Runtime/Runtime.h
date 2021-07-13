@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -88,7 +89,6 @@ namespace Js
     class ForInObjectEnumerator;
     class JavascriptConversion;
     class JavascriptDate;
-    class JavascriptVariantDate;
     class DateImplementation;
     class BufferString;
     class BufferStringBuilder;
@@ -106,6 +106,7 @@ namespace Js
     class JavascriptEnumeratorIterator;
     class JavascriptArrayIterator;
     enum class JavascriptArrayIteratorKind;
+    class JavascriptAsyncFromSyncIterator;
     class JavascriptMapIterator;
     enum class JavascriptMapIteratorKind;
     class JavascriptSetIterator;
@@ -115,8 +116,6 @@ namespace Js
     class JavascriptPromise;
     class JavascriptPromiseCapability;
     class JavascriptPromiseReaction;
-    class JavascriptPromiseAsyncSpawnExecutorFunction;
-    class JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction;
     class JavascriptPromiseCapabilitiesExecutorFunction;
     class JavascriptPromiseResolveOrRejectFunction;
     class JavascriptPromiseReactionTaskFunction;
@@ -124,8 +123,12 @@ namespace Js
     class JavascriptPromiseThunkFinallyFunction;
     class JavascriptPromiseResolveThenableTaskFunction;
     class JavascriptPromiseAllResolveElementFunction;
+    class JavascriptPromiseAllSettledResolveOrRejectElementFunction;
+    class JavascriptPromiseAnyRejectElementFunction;
     struct JavascriptPromiseAllResolveElementFunctionRemainingElementsWrapper;
     struct JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper;
+    class JavascriptAsyncSpawnExecutorFunction;
+    class JavascriptAsyncSpawnStepFunction;
     class JavascriptGenerator;
     class LiteralString;
     class JavascriptStringObject;
@@ -161,6 +164,7 @@ namespace Js
 
     struct RestrictedErrorStrings;
     class JavascriptError;
+    class JavascriptAggregateError;
     class RecyclableObject;
     class JavascriptRegExp;
     class JavascriptRegularExpressionResult;
@@ -179,6 +183,7 @@ namespace Js
     class StackScriptFunction;
     class GeneratorVirtualScriptFunction;
     class JavascriptGeneratorFunction;
+    class JavascriptAsyncGeneratorFunction;
     class JavascriptAsyncFunction;
     class AsmJsScriptFunction;
     class WasmScriptFunction;
@@ -429,6 +434,7 @@ enum tagDEBUG_EVENT_INFO_TYPE
 
 #include "Library/JavascriptNumber.h"
 #include "Library/JavascriptFunction.h"
+#include "Library/BoundFunction.h"
 #include "Library/RuntimeFunction.h"
 #include "Library/JavascriptExternalFunction.h"
 #include "Library/CustomExternalIterator.h"
@@ -534,6 +540,7 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #ifdef _CHAKRACOREBUILD
 #include "Library/CustomExternalWrapperObject.h"
 #endif
+
 #include "Library/JavascriptProxy.h"
 
 #if ENABLE_TTD
@@ -551,6 +558,10 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Debug/TTActionEvents.h"
 #include "Debug/TTEventLog.h"
 #endif
+
+#include "Library/JavascriptGeneratorFunction.h"
+#include "Library/JavascriptAsyncFunction.h"
+#include "Library/JavascriptAsyncGeneratorFunction.h"
 
 #include "../WasmReader/WasmReader.h"
 
@@ -577,7 +588,6 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Language/InlineCachePointerArray.inl"
 #include "Language/JavascriptOperators.inl"
 #include "Language/TaggedInt.inl"
-#include "Library/JavascriptGeneratorFunction.h"
 
 #ifndef USED_IN_STATIC_LIB
 #ifdef ENABLE_INTL_OBJECT
