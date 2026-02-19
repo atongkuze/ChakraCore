@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -20,5 +21,7 @@
 #include "PlatformAgnostic/AssemblyCommon.h"
 
 #if !defined(_WIN32) && defined(DEBUG)
+// This define from sal.h conflicts with Linux's signal.h
+#undef __reserved
 #include <signal.h> // raise(SIGINT)
 #endif

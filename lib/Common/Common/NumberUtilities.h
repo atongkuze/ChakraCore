@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft Corporation and contributors. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -83,6 +84,14 @@ namespace Js
 
     };
 
+#ifdef __clang__
+    typedef uint32 uint32_aliased __attribute__((__may_alias__));
+    typedef double double_aliased __attribute__((__may_alias__));
+#else
+    typedef uint32 uint32_aliased;
+    typedef double double_aliased;
+#endif
+
     class NumberUtilities : public NumberUtilitiesBase
     {
     public:
@@ -91,8 +100,8 @@ namespace Js
         static uint32 MulLu(uint32 lu1, uint32 lu2, uint32 *pluHi);
         static int AddLu(uint32 *plu1, uint32 lu2);
 
-        static uint32 &LuHiDbl(double &dbl);
-        static uint32 &LuLoDbl(double &dbl);
+        static uint32_aliased &LuHiDbl(double_aliased &dbl);
+        static uint32_aliased &LuLoDbl(double_aliased &dbl);
         static INT64 TryToInt64(double d);
         static bool IsValidTryToInt64(__int64 value);   // Whether TryToInt64 resulted in a valid value.
 
@@ -111,7 +120,7 @@ namespace Js
         // Convert a given UINT16 into its corresponding string.
         // outBufferSize is in WCHAR elements (and used only for ASSERTs)
         // Returns the number of characters written to outBuffer (not including the \0)
-        static charcount_t UInt16ToString(uint16 integer, __out __ecount(outBufferSize) WCHAR* outBuffer, charcount_t outBufferSize, char widthForPaddingZerosInsteadSpaces);
+        static charcount_t UInt16ToString(uint16 integer, _Out_ __ecount(outBufferSize) WCHAR* outBuffer, charcount_t outBufferSize, char widthForPaddingZerosInsteadSpaces);
 
         // Try to parse an integer string to find out if the string contains an index property name.
         static BOOL TryConvertToUInt32(const char16* str, int length, uint32* intVal);
@@ -227,7 +236,7 @@ namespace Js
 
         // Implemented in lib\parser\common.  Should move to lib\common
         template<typename EncodedChar>
-        static double StrToDbl(const EncodedChar *psz, const EncodedChar **ppchLim, LikelyNumberType& likelyType, bool isESBigIntEnabled = false);
+        static double StrToDbl(const EncodedChar *psz, const EncodedChar **ppchLim, LikelyNumberType& likelyType, bool isESBigIntEnabled = false, bool isNumericSeparatorEnabled = false);
 
         static BOOL FDblToStr(double dbl, __out_ecount(nDstBufSize) char16 *psz, int nDstBufSize);
         static int FDblToStr(double dbl, NumberUtilities::FormatType ft, int nDigits, __out_ecount(cchDst) char16 *pchDst, int cchDst);
@@ -237,7 +246,7 @@ namespace Js
 
         static double DblFromDecimal(DECIMAL * pdecIn);
 
-        static void CodePointAsSurrogatePair(codepoint_t codePointValue, __out char16* first, __out char16* second);
+        static void CodePointAsSurrogatePair(codepoint_t codePointValue, _Out_ char16* first, _Out_ char16* second);
         static codepoint_t SurrogatePairAsCodePoint(codepoint_t first, codepoint_t second);
 
         static bool IsSurrogateUpperPart(codepoint_t codePointValue);
@@ -250,11 +259,11 @@ namespace Js
         static BOOL FDblIsInt32(double dbl, int32 *plw);
 
         template<typename EncodedChar>
-        static double DblFromHex(const EncodedChar *psz, const EncodedChar **ppchLim);
+        static double DblFromHex(const EncodedChar *psz, const EncodedChar **ppchLim, bool isNumericSeparatorEnabled = false);
         template <typename EncodedChar>
-        static double DblFromBinary(const EncodedChar *psz, const EncodedChar **ppchLim);
+        static double DblFromBinary(const EncodedChar *psz, const EncodedChar **ppchLim, bool isNumericSeparatorEnabled = false);
         template<typename EncodedChar>
-        static double DblFromOctal(const EncodedChar *psz, const EncodedChar **ppchLim);
+        static double DblFromOctal(const EncodedChar *psz, const EncodedChar **ppchLim, bool isNumericSeparatorEnabled = false);
         template<typename EncodedChar>
         static double StrToDbl(const EncodedChar *psz, const EncodedChar **ppchLim, Js::ScriptContext *const scriptContext);
 

@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -162,11 +163,11 @@ public:
 
     virtual HRESULT SetCaller(IUnknown *punkNew, IUnknown **ppunkPrev) = 0;
     virtual HRESULT GetDispatchExCaller(__deref_out void** dispatchExCaller) = 0;
-    virtual void ReleaseDispatchExCaller(__in void* dispatchExCaler) = 0;
+    virtual void ReleaseDispatchExCaller(_In_ void* dispatchExCaler) = 0;
     virtual Js::ModuleRoot * GetModuleRoot(int moduleID) = 0;
-    virtual HRESULT CheckCrossDomainScriptContext(__in Js::ScriptContext* scriptContext) = 0;
+    virtual HRESULT CheckCrossDomainScriptContext(_In_ Js::ScriptContext* scriptContext) = 0;
 
-    virtual HRESULT GetHostContextUrl(__in DWORD_PTR hostSourceContext, __out BSTR& pUrl) = 0;
+    virtual HRESULT GetHostContextUrl(_In_ DWORD_PTR hostSourceContext, _Out_ BSTR& pUrl) = 0;
     virtual BOOL HasCaller() = 0;
     virtual void CleanDynamicCodeCache() = 0;
     virtual HRESULT VerifyDOMSecurity(Js::ScriptContext* targetContext, Js::Var obj) = 0;
@@ -176,14 +177,13 @@ public:
 
     virtual HRESULT GetExternalJitData(ExternalJitData id, void *data) = 0;
     virtual HRESULT SetDispatchInvoke(Js::JavascriptMethod dispatchInvoke) = 0;
-    virtual HRESULT ArrayBufferFromExternalObject(__in Js::RecyclableObject *obj,
-        __out Js::ArrayBuffer **ppArrayBuffer) = 0;
-    virtual Js::JavascriptError* CreateWinRTError(IErrorInfo* perrinfo, Js::RestrictedErrorStrings * proerrstr) = 0;
     virtual HRESULT EnqueuePromiseTask(Js::Var varTask) = 0;
 
     virtual HRESULT FetchImportedModule(Js::ModuleRecordBase* referencingModule, LPCOLESTR specifier, Js::ModuleRecordBase** dependentModuleRecord) = 0;
     virtual HRESULT FetchImportedModuleFromScript(DWORD_PTR dwReferencingSourceContext, LPCOLESTR specifier, Js::ModuleRecordBase** dependentModuleRecord) = 0;
     virtual HRESULT NotifyHostAboutModuleReady(Js::ModuleRecordBase* referencingModule, Js::Var exceptionVar) = 0;
+    virtual HRESULT InitializeImportMeta(Js::ModuleRecordBase* referencingModule, Js::Var importMetaObject) = 0;
+    virtual bool ReportModuleCompletion(Js::ModuleRecordBase* module, Js::Var exception) = 0;
 
     virtual HRESULT ThrowIfFailed(HRESULT hr) = 0;
 
@@ -273,48 +273,15 @@ namespace Js
     };
 #pragma pack(pop)
 
-#ifdef ENABLE_PROJECTION
-    class ProjectionConfiguration
-    {
-    public:
-        ProjectionConfiguration() : targetVersion(0)
-        {
-        }
-
-        DWORD GetTargetVersion() const { return this->targetVersion; }
-        void SetTargetVersion(DWORD version) { this->targetVersion = version; }
-
-        bool IsTargetWindows8() const           { return this->targetVersion == NTDDI_WIN8; }
-        bool IsTargetWindowsBlueOrLater() const { return this->targetVersion >= NTDDI_WINBLUE; }
-
-    private:
-        DWORD targetVersion;
-    };
-#endif // ENABLE_PROJECTION
-
     class ScriptConfiguration
     {
     public:
         ScriptConfiguration(const ThreadConfiguration * const threadConfig, const bool isOptimizedForManyInstances) :
-#ifdef ENABLE_PROJECTION
-            HostType(Configuration::Global.flags.HostType),
-            WinRTConstructorAllowed(Configuration::Global.flags.WinRTConstructorAllowed),
-#endif
             NoNative(Configuration::Global.flags.NoNative),
             NoDynamicThunks(false),
             isOptimizedForManyInstances(isOptimizedForManyInstances),
             threadConfig(threadConfig)
         {
-        }
-
-        // Version
-        bool SupportsES3()                      const { return true; }
-        bool SupportsES3Extensions()            const {
-#ifdef ENABLE_PROJECTION
-            return HostType != HostTypeApplication;
-#else
-            return true;
-#endif
         }
 
 #define FORWARD_THREAD_CONFIG(flag) inline bool flag() const { return threadConfig->flag(); }
@@ -339,48 +306,15 @@ namespace Js
         {
             this->NoNative = other.NoNative;
             this->fCanOptimizeGlobalLookup = other.fCanOptimizeGlobalLookup;
-#ifdef ENABLE_PROJECTION
-            this->HostType = other.HostType;
-            this->WinRTConstructorAllowed = other.WinRTConstructorAllowed;
-            this->projectionConfiguration = other.projectionConfiguration;
-#endif
         }
 
-#ifdef ENABLE_PROJECTION
-        Number GetHostType() const    // Returns one of enum HostType values (see ConfigFlagsTable.h).
-        {
-            AssertMsg(this->HostType >= HostTypeMin && this->HostType <= HostTypeMax, "HostType value is out of valid range.");
-            return this->HostType;
-        }
-
-        ProjectionConfiguration const * GetProjectionConfig() const
-        {
-            return &projectionConfiguration;
-        }
-        void SetHostType(int32 hostType) { this->HostType = hostType; }
-        void SetWinRTConstructorAllowed(bool allowed) { this->WinRTConstructorAllowed = allowed; }
-        void SetProjectionTargetVersion(DWORD version)
-        {
-            projectionConfiguration.SetTargetVersion(version);
-        }
-        bool IsWinRTEnabled()           const { return (GetHostType() == Js::HostTypeApplication) || (GetHostType() == Js::HostTypeWebview); }
-
-        bool IsWinRTConstructorAllowed() const { return (GetHostType() != Js::HostTypeWebview) || this->WinRTConstructorAllowed; }
-#endif
     private:
-
         // Per script configurations
         bool NoNative;
         bool NoDynamicThunks;
         BOOL fCanOptimizeGlobalLookup;
         const bool isOptimizedForManyInstances;
         const ThreadConfiguration * const threadConfig;
-
-#ifdef ENABLE_PROJECTION
-        Number HostType;    // One of enum HostType values (see ConfigFlagsTable.h).
-        bool WinRTConstructorAllowed;  // whether allow constructor in webview host type. Also note that this is not a security feature.
-        ProjectionConfiguration projectionConfiguration;
-#endif
     };
 
     struct ScriptEntryExitRecord
@@ -520,7 +454,7 @@ namespace Js
 #endif
 
 #ifdef ENABLE_JS_ETW
-        void EmitStackTraceEvent(__in UINT64 operationID, __in USHORT maxFrameCount, bool emitV2AsyncStackEvent);
+        void EmitStackTraceEvent(_In_ UINT64 operationID, _In_ USHORT maxFrameCount, bool emitV2AsyncStackEvent);
         static ushort ProcessNameAndGetLength(Js::StringBuilder<ArenaAllocator>* nameBuffer, const WCHAR* name);
 #endif
 
@@ -961,7 +895,7 @@ private:
         void EnsureSourceContextInfoMap();
         void EnsureDynamicSourceContextInfoMap();
 
-        void AddToEvalMapHelper(FastEvalMapString const& key, BOOL isIndirect, ScriptFunction *pFuncScript);
+        void AddToEvalMapHelper(FastEvalMapString & key, BOOL isIndirect, ScriptFunction *pFuncScript);
 
         uint moduleSrcInfoCount;
 #ifdef RUNTIME_DATA_COLLECTION
@@ -1112,7 +1046,7 @@ private:
         static const int MaxEvalSourceSize = 400;
 
         bool IsInEvalMap(FastEvalMapString const& key, BOOL isIndirect, ScriptFunction **ppFuncScript);
-        void AddToEvalMap(FastEvalMapString const& key, BOOL isIndirect, ScriptFunction *pFuncScript);
+        void AddToEvalMap(FastEvalMapString & key, BOOL isIndirect, ScriptFunction *pFuncScript);
 
         template <typename TCacheType>
         void CleanDynamicFunctionCache(TCacheType* cacheType);
@@ -1248,11 +1182,6 @@ private:
         void Initialize();
         bool Close(bool inDestructor);
         void MarkForClose();
-#ifdef ENABLE_PROJECTION
-        void SetHostType(int32 hostType) { config.SetHostType(hostType); }
-        void SetWinRTConstructorAllowed(bool allowed) { config.SetWinRTConstructorAllowed(allowed); }
-        void SetProjectionTargetVersion(DWORD version) { config.SetProjectionTargetVersion(version); }
-#endif
         void SetCanOptimizeGlobalLookupFlag(BOOL f){ config.SetCanOptimizeGlobalLookupFlag(f);}
         BOOL CanOptimizeGlobalLookup(){ return config.CanOptimizeGlobalLookup();}
 
@@ -1267,8 +1196,8 @@ private:
         PropertyString* AddPropertyString2(const Js::PropertyRecord* propertyRecord);
         PropertyString* CachePropertyString2(const Js::PropertyRecord* propertyRecord);
         PropertyString* GetPropertyString2(char16 ch1, char16 ch2);
-        void FindPropertyRecord(__in LPCWSTR pszPropertyName, __in int propertyNameLength, PropertyRecord const** propertyRecord);
-        JsUtil::List<const RecyclerWeakReference<Js::PropertyRecord const>*>* FindPropertyIdNoCase(__in LPCWSTR pszPropertyName, __in int propertyNameLength);
+        void FindPropertyRecord(_In_ LPCWSTR pszPropertyName, _In_ int propertyNameLength, PropertyRecord const** propertyRecord);
+        JsUtil::List<const RecyclerWeakReference<Js::PropertyRecord const>*>* FindPropertyIdNoCase(_In_ LPCWSTR pszPropertyName, _In_ int propertyNameLength);
 
         void FindPropertyRecord(JavascriptString* pstName, PropertyRecord const** propertyRecord);
         PropertyRecord const * GetPropertyName(PropertyId propertyId);
@@ -1284,14 +1213,14 @@ private:
         {
             return GetOrAddPropertyIdTracked(propertyName, N - 1);
         }
-        PropertyId GetOrAddPropertyIdTracked(__in_ecount(propertyNameLength) LPCWSTR pszPropertyName, __in int propertyNameLength);
+        PropertyId GetOrAddPropertyIdTracked(__in_ecount(propertyNameLength) LPCWSTR pszPropertyName, _In_ int propertyNameLength);
         void GetOrAddPropertyRecord(__in_ecount(propertyNameLength) LPCWSTR pszPropertyName, _In_ int propertyNameLength, _Out_ PropertyRecord const** propertyRecord);
         BOOL IsNumericPropertyId(PropertyId propertyId, uint32* value);
 
         void RegisterWeakReferenceDictionary(JsUtil::IWeakReferenceDictionary* weakReferenceDictionary);
         void ResetWeakReferenceDictionaryList() { weakReferenceDictionaryList.Reset(); }
 
-        BOOL ReserveStaticTypeIds(__in int first, __in int last);
+        BOOL ReserveStaticTypeIds(_In_ int first, _In_ int last);
         TypeId ReserveTypeIds(int count);
         TypeId CreateTypeId();
 
@@ -1343,17 +1272,17 @@ private:
             _In_ Js::SimpleDataCacheWrapper* pDataCache);
 
         HRESULT CompileUTF8Core(
-            __in Parser& ps,
-            __in Js::Utf8SourceInfo* utf8SourceInfo,
-            __in SRCINFO *srcInfo,
-            __in BOOL fOriginalUTF8Code,
+            _In_ Parser& ps,
+            _In_ Js::Utf8SourceInfo* utf8SourceInfo,
+            _In_ SRCINFO *srcInfo,
+            _In_ BOOL fOriginalUTF8Code,
             _In_reads_bytes_(cbLength) LPCUTF8 pszSrc,
-            __in size_t cbLength,
-            __in ULONG grfscr,
-            __in CompileScriptException *pse,
+            _In_ size_t cbLength,
+            _In_ ULONG grfscr,
+            _In_ CompileScriptException *pse,
             __inout charcount_t& cchLength,
-            __out size_t& srcLength,
-            __out uint& sourceIndex,
+            _Out_ size_t& srcLength,
+            _Out_ uint& sourceIndex,
             __deref_out Js::ParseableFunctionInfo ** func,
             __in_opt Js::SimpleDataCacheWrapper* pDataCache);
 
@@ -1847,6 +1776,8 @@ private:
         virtual intptr_t GetLibraryAddr() const override;
         virtual intptr_t GetGlobalObjectAddr() const override;
         virtual intptr_t GetGlobalObjectThisAddr() const override;
+        virtual intptr_t GetObjectPrototypeAddr() const;
+        virtual intptr_t GetFunctionPrototypeAddr() const;
         virtual intptr_t GetNumberAllocatorAddr() const override;
         virtual intptr_t GetRecyclerAddr() const override;
         virtual bool GetRecyclerAllowNativeCodeBumpAllocation() const override;
@@ -1861,12 +1792,6 @@ private:
 #endif
 
         virtual intptr_t GetChakraLibAddr() const override;
-
-#if ENABLE_NATIVE_CODEGEN
-        virtual void AddToDOMFastPathHelperMap(intptr_t funcInfoAddr, IR::JnHelperMethod helper) override;
-        virtual IR::JnHelperMethod GetDOMFastPathHelper(intptr_t funcInfoAddr) override;
-#endif
-
         virtual intptr_t GetAddr() const override;
 
         virtual intptr_t GetVTableAddress(VTableValue vtableType) const override;
@@ -1886,10 +1811,6 @@ private:
 
     private:
         BuiltInLibraryFunctionMap* builtInLibraryFunctions;
-
-#if ENABLE_NATIVE_CODEGEN
-        JITDOMFastPathHelperMap * m_domFastPathHelperMap;
-#endif
 
 #ifdef RECYCLER_PERF_COUNTERS
         size_t bindReferenceCount;

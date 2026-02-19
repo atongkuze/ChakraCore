@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "ParserPch.h"
@@ -492,6 +493,8 @@ tokens Scanner<EncodingPolicy>::ScanIdentifierContinue(bool identifyKwds, bool f
         break;
     }
 
+    m_lastIdentifierHasEscape = fHasEscape;
+
     Assert(p - pchMin > 0 && p - pchMin <= LONG_MAX);
 
     *pp = p;
@@ -635,20 +638,20 @@ typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanN
         case 'x':
         case 'X':
             // Hex
-            *pdbl = Js::NumberUtilities::DblFromHex(p + 2, &pchT);
+            *pdbl = Js::NumberUtilities::DblFromHex(p + 2, &pchT, m_scriptContext->GetConfig()->IsESNumericSeparatorEnabled());
             baseSpecifierCheck();
             goto LIdCheck;
         case 'o':
         case 'O':
             // Octal
-            *pdbl = Js::NumberUtilities::DblFromOctal(p + 2, &pchT);
+            *pdbl = Js::NumberUtilities::DblFromOctal(p + 2, &pchT, m_scriptContext->GetConfig()->IsESNumericSeparatorEnabled());
             baseSpecifierCheck();
             goto LIdCheck;
 
         case 'b':
         case 'B':
             // Binary
-            *pdbl = Js::NumberUtilities::DblFromBinary(p + 2, &pchT);
+            *pdbl = Js::NumberUtilities::DblFromBinary(p + 2, &pchT, m_scriptContext->GetConfig()->IsESNumericSeparatorEnabled());
             baseSpecifierCheck();
             goto LIdCheck;
 
@@ -679,7 +682,7 @@ typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanN
     else
     {
 LFloat:
-        *pdbl = Js::NumberUtilities::StrToDbl(p, &pchT, likelyType, m_scriptContext->GetConfig()->IsESBigIntEnabled());
+        *pdbl = Js::NumberUtilities::StrToDbl(p, &pchT, likelyType, m_scriptContext->GetConfig()->IsESBigIntEnabled(), m_scriptContext->GetConfig()->IsESNumericSeparatorEnabled());
         Assert(pchT == p || !Js::NumberUtilities::IsNan(*pdbl));
         if (likelyType == LikelyNumberType::BigInt)
         {
@@ -1064,7 +1067,6 @@ tokens Scanner<EncodingPolicy>::ScanStringConstant(OLECHAR delim, EncodedCharPtr
                 ch = rawch = kchNWL;
             }
 
-LEcmaLineBreak:
             // Fall through
         case kchNWL:
             if (stringTemplateMode)
@@ -1124,18 +1126,7 @@ LEcmaLineBreak:
 LMainDefault:
             if (this->IsMultiUnitChar(ch))
             {
-                if ((ch == kchLS || ch == kchPS))
-                {
-                    goto LEcmaLineBreak;
-                }
-
                 rawch = ch = this->template ReadRest<true>(ch, p, last);
-                switch (ch)
-                {
-                case kchLS: // 0x2028, classifies as new line
-                case kchPS: // 0x2029, classifies as new line
-                    goto LEcmaLineBreak;
-                }
             }
             break;
 
@@ -1602,7 +1593,7 @@ tokens Scanner<EncodingPolicy>::ScanCore(bool identifyKwds)
     bool seenDelimitedCommentEnd = false;
 
     // store the last token
-    m_tkPrevious = m_ptoken->tk;
+    m_tokenPrevious = *m_ptoken;
     m_iecpLimTokPrevious = IecpLimTok();    // Introduced for use by lambda parsing to find correct span of expression lambdas
     m_ichLimTokPrevious = IchLimTok();
     size_t savedMultiUnits = this->m_cMultiUnits;
@@ -1646,6 +1637,7 @@ LLoop:
 #endif
         switch (ch)
         {
+LDefault:
         default:
             if (ch == kchLS ||
                 ch == kchPS )
@@ -1779,7 +1771,18 @@ LEof:
         case '[': Assert(chType == _C_LBR); token = tkLBrack; break;
         case ']': Assert(chType == _C_RBR); token = tkRBrack; break;
         case '~': Assert(chType == _C_TIL); token = tkTilde;  break;
-        case '?': Assert(chType == _C_QUE); token = tkQMark;  break;
+
+        case '?':
+            Assert(chType == _C_QUE);
+            token = tkQMark;
+            if (m_scriptContext->GetConfig()->IsESNullishCoalescingOperatorEnabled() && this->PeekFirst(p, last) == '?')
+            {
+                p++;
+                token = tkCoalesce;
+                break;
+            }
+            break;
+
         case '{': Assert(chType == _C_LC);  token = tkLCurly; break;
 
         // ES 2015 11.3 Line Terminators
@@ -1961,6 +1964,16 @@ LIdentifier:
                 }
             }
             break;
+
+        case '#':
+            // Hashbang syntax is a single line comment only if it is the first token in the source
+            if (m_scriptContext->GetConfig()->IsESHashbangEnabled() && this->PeekFirst(p, last) == '!' && m_pchBase == m_pchMinTok)
+            {
+                p++;
+                goto LSkipLineComment;
+            }
+            goto LDefault;
+
         case '/':
             token = tkDiv;
             switch(this->PeekFirst(p, last))
@@ -2325,7 +2338,7 @@ void Scanner<EncodingPolicy>::SeekTo(const RestorePoint& restorePoint, uint *nex
 
 // Called by CompileScriptException::ProcessError to retrieve a BSTR for the line on which an error occurred.
 template<typename EncodingPolicy>
-HRESULT Scanner<EncodingPolicy>::SysAllocErrorLine(int32 ichMinLine, __out BSTR* pbstrLine)
+HRESULT Scanner<EncodingPolicy>::SysAllocErrorLine(int32 ichMinLine, _Out_ BSTR* pbstrLine)
 {
     if( !pbstrLine )
     {

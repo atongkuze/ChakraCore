@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -58,6 +59,7 @@ struct JsAPIHooks
     typedef JsErrorCode (WINAPI *JsrtCreateErrorPtr)(JsValueRef message, JsValueRef *error);
     typedef JsErrorCode (WINAPI *JsrtHasExceptionPtr)(bool *hasException);
     typedef JsErrorCode (WINAPI *JsrtSetExceptionPtr)(JsValueRef exception);
+    typedef JsErrorCode (WINAPI *JsrtGetAndClearExceptiopnWithMetadataPtr)(JsValueRef* metadata);
     typedef JsErrorCode (WINAPI *JsrtGetAndClearExceptiopnPtr)(JsValueRef* exception);
     typedef JsErrorCode (WINAPI *JsrtGetRuntimePtr)(JsContextRef context, JsRuntimeHandle *runtime);
     typedef JsErrorCode (WINAPI *JsrtReleasePtr)(JsRef ref, unsigned int* count);
@@ -197,6 +199,7 @@ struct JsAPIHooks
     JsrtCreateErrorPtr pfJsrtCreateError;
     JsrtHasExceptionPtr pfJsrtHasException;
     JsrtSetExceptionPtr pfJsrtSetException;
+    JsrtGetAndClearExceptiopnWithMetadataPtr pfJsrtGetAndClearExceptionWithMetadata;
     JsrtGetAndClearExceptiopnPtr pfJsrtGetAndClearException;
     JsrtGetRuntimePtr pfJsrtGetRuntime;
     JsrtReleasePtr pfJsrtRelease;
@@ -339,8 +342,8 @@ public:
     static void UnloadChakraDll(HINSTANCE library);
 
     static HRESULT SetAssertToConsoleFlag(bool flag) { return CHECKED_CALL(SetAssertToConsoleFlag, flag); }
-    static HRESULT SetConfigFlags(__in int argc, __in_ecount(argc) LPWSTR argv[], ICustomConfigFlags* customConfigFlags) { return CHECKED_CALL(SetConfigFlags, argc, argv, customConfigFlags); }
-    static HRESULT SetConfigFile(__in LPWSTR strConfigFileName) { return CHECKED_CALL(SetConfigFile, strConfigFileName); }
+    static HRESULT SetConfigFlags(_In_ int argc, __in_ecount(argc) LPWSTR argv[], ICustomConfigFlags* customConfigFlags) { return CHECKED_CALL(SetConfigFlags, argc, argv, customConfigFlags); }
+    static HRESULT SetConfigFile(_In_ LPWSTR strConfigFileName) { return CHECKED_CALL(SetConfigFile, strConfigFileName); }
     static HRESULT GetFileNameFlag(BSTR * filename) { return CHECKED_CALL(GetFilenameFlag, filename); }
     static HRESULT PrintConfigFlagsUsageString() { m_usageStringPrinted = true;  return CHECKED_CALL(PrintConfigFlagsUsageString); }
 
@@ -428,6 +431,7 @@ public:
     static JsErrorCode WINAPI JsHasException(bool *hasException) { return HOOK_JS_API(HasException(hasException)); }
     static JsErrorCode WINAPI JsSetException(JsValueRef exception) { return HOOK_JS_API(SetException(exception)); }
     static JsErrorCode WINAPI JsGetAndClearException(JsValueRef *exception) { return HOOK_JS_API(GetAndClearException(exception)); }
+    static JsErrorCode WINAPI JsGetAndClearExceptionWithMetadata(JsValueRef * metadata) { return HOOK_JS_API(GetAndClearExceptionWithMetadata(metadata)); }
     static JsErrorCode WINAPI JsGetRuntime(JsContextRef context, JsRuntimeHandle *runtime) { return HOOK_JS_API(GetRuntime(context, runtime)); }
     static JsErrorCode WINAPI JsRelease(JsRef ref, unsigned int* count) { return HOOK_JS_API(Release(ref, count)); }
     static JsErrorCode WINAPI JsAddRef(JsRef ref, unsigned int* count) { return HOOK_JS_API(AddRef(ref, count)); }

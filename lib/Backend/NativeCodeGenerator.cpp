@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "Backend.h"
@@ -160,11 +161,7 @@ void NativeCodeGenerator::Close()
     // Close FreeLoopBodyJobManager first, as it depends on NativeCodeGenerator to be open before it's removed
     this->freeLoopBodyManager.Close();
 
-    // Remove only if it is not updated in the debug mode (and which goes to interpreter mode).
-    if (!hasUpdatedQForDebugMode || Js::Configuration::Global.EnableJitInDebugMode())
-    {
-        Processor()->RemoveManager(this);
-    }
+    Processor()->RemoveManager(this);
 
     this->isClosed = true;
 
@@ -250,8 +247,11 @@ NativeCodeGenerator::GenerateAllFunctions(Js::FunctionBody * fn)
             for (uint i = 0; i < fn->GetLoopCount(); i++)
             {
                 Js::LoopHeader * loopHeader = fn->GetLoopHeader(i);
-                Js::EntryPointInfo * entryPointInfo = loopHeader->GetCurrentEntryPointInfo();
-                this->GenerateLoopBody(fn, loopHeader, entryPointInfo);
+                if (loopHeader->hasYield == false)
+                {
+                    Js::EntryPointInfo * entryPointInfo = loopHeader->GetCurrentEntryPointInfo();
+                    this->GenerateLoopBody(fn, loopHeader, entryPointInfo);
+                }
             }
         }
         else
@@ -635,6 +635,7 @@ void NativeCodeGenerator::GenerateLoopBody(Js::FunctionBody * fn, Js::LoopHeader
     ASSERT_THREAD();
     Assert(fn->GetScriptContext()->GetNativeCodeGenerator() == this);
     Assert(entryPoint->jsMethod == nullptr);
+    Assert(!loopHeader->hasYield);
 
 #if DBG_DUMP
     if (PHASE_TRACE1(Js::JITLoopBodyPhase))
@@ -1233,6 +1234,10 @@ NativeCodeGenerator::CodeGen(PageAllocator * pageAllocator, CodeGenWorkItem* wor
         if (jitWriteData.disableTrackCompoundedIntOverflow)
         {
             body->GetAnyDynamicProfileInfo()->DisableTrackCompoundedIntOverflow();
+        }
+        if (jitWriteData.disableMemOp)
+        {
+            body->GetAnyDynamicProfileInfo()->DisableMemOp();
         }
     }
 
@@ -2010,10 +2015,7 @@ NativeCodeGenerator::UpdateQueueForDebugMode()
 
     this->hasUpdatedQForDebugMode = true;
 
-    if (Js::Configuration::Global.EnableJitInDebugMode())
-    {
-        Processor()->AddManager(this);
-    }
+    Processor()->AddManager(this);
 }
 
 void
@@ -3043,13 +3045,7 @@ NativeCodeGenerator::GatherCodeGenData(
                 const auto inlineeFunctionBody = inlinee->GetFunctionBody();
                 if(!inlineeFunctionBody)
                 {
-                    if ((
-#ifdef ENABLE_DOM_FAST_PATH
-                         inlinee->GetLocalFunctionId() == Js::JavascriptBuiltInFunction::DOMFastPathGetter ||
-                         inlinee->GetLocalFunctionId() == Js::JavascriptBuiltInFunction::DOMFastPathSetter ||
-#endif
-                         (inlineeFunctionInfo->GetAttributes() & Js::FunctionInfo::Attributes::BuiltInInlinableAsLdFldInlinee) != 0) &&
-                        !isJitTimeDataComputed)
+                    if (((inlineeFunctionInfo->GetAttributes() & Js::FunctionInfo::Attributes::BuiltInInlinableAsLdFldInlinee) != 0) && !isJitTimeDataComputed)
                     {
                         jitTimeData->AddLdFldInlinee(recycler, inlineCacheIndex, inlinee);
                     }
@@ -3244,12 +3240,6 @@ NativeCodeGenerator::EnterScriptStart()
     }
 
     if (this->IsClosed())
-    {
-        return;
-    }
-
-    // Don't need to do anything if we're in debug mode
-    if (this->scriptContext->IsScriptContextInDebugMode() && !Js::Configuration::Global.EnableJitInDebugMode())
     {
         return;
     }

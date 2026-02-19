@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -101,8 +102,11 @@ class ChakraCoreHostScriptContext sealed : public HostScriptContext
 public:
     ChakraCoreHostScriptContext(Js::ScriptContext* scriptContext)
         : HostScriptContext(scriptContext),
+        fetchImportedModuleCallback(nullptr),
+        fetchImportedModuleFromScriptCallback(nullptr),
         notifyModuleReadyCallback(nullptr),
-        fetchImportedModuleCallback(nullptr)
+        initializeImportMetaCallback(nullptr),
+        reportModuleCompletionCallback(nullptr)
     {
     }
     ~ChakraCoreHostScriptContext()
@@ -147,7 +151,7 @@ public:
         return NOERROR;
     }
 
-    void ReleaseDispatchExCaller(__in void* dispatchExCaller)
+    void ReleaseDispatchExCaller(_In_ void* dispatchExCaller)
     {
         return;
     }
@@ -158,13 +162,13 @@ public:
         return nullptr;
     }
 
-    HRESULT CheckCrossDomainScriptContext(__in Js::ScriptContext* scriptContext) override
+    HRESULT CheckCrossDomainScriptContext(_In_ Js::ScriptContext* scriptContext) override
     {
         // no cross domain for jsrt. Return S_OK
         return S_OK;
     }
 
-    HRESULT GetHostContextUrl(__in DWORD_PTR hostSourceContext, __out BSTR& pUrl) override
+    HRESULT GetHostContextUrl(_In_ DWORD_PTR hostSourceContext, _Out_ BSTR& pUrl) override
     {
         Assert(false);
         return E_NOTIMPL;
@@ -219,20 +223,6 @@ public:
         return E_NOTIMPL;
     }
 
-    HRESULT ArrayBufferFromExternalObject(__in Js::RecyclableObject *obj,
-        __out Js::ArrayBuffer **ppArrayBuffer) override
-    {
-        // there is no IBuffer in chakracore.
-        *ppArrayBuffer = nullptr;
-        return S_FALSE;
-    }
-
-    Js::JavascriptError* CreateWinRTError(IErrorInfo* perrinfo, Js::RestrictedErrorStrings * proerrstr) override
-    {
-        AssertMsg(false, "no winrt support in chakracore");
-        return nullptr;
-    }
-
     HRESULT ThrowIfFailed(HRESULT hr) override
     {
         hr;
@@ -250,6 +240,9 @@ public:
 
     HRESULT NotifyHostAboutModuleReady(Js::ModuleRecordBase* referencingModule, Js::Var exceptionVar) override;
 
+    HRESULT InitializeImportMeta(Js::ModuleRecordBase* referencingModule, Js::Var importMetaObject) override;
+    bool ReportModuleCompletion(Js::ModuleRecordBase* module, Js::Var exception) override;
+
     void SetNotifyModuleReadyCallback(NotifyModuleReadyCallback notifyCallback) { this->notifyModuleReadyCallback = notifyCallback; }
     NotifyModuleReadyCallback GetNotifyModuleReadyCallback() const { return this->notifyModuleReadyCallback; }
 
@@ -258,6 +251,12 @@ public:
 
     void SetFetchImportedModuleFromScriptCallback(FetchImportedModuleFromScriptCallBack fetchCallback) { this->fetchImportedModuleFromScriptCallback = fetchCallback; }
     FetchImportedModuleFromScriptCallBack GetFetchImportedModuleFromScriptCallback() const { return this->fetchImportedModuleFromScriptCallback; }
+
+    void SetInitializeImportMetaCallback(InitializeImportMetaCallback initializeCallback) { this->initializeImportMetaCallback = initializeCallback; }
+    InitializeImportMetaCallback GetInitializeImportMetaCallback() const { return this->initializeImportMetaCallback; }
+
+    void SetReportModuleCompletionCallback(ReportModuleCompletionCallback processCallback) { this->reportModuleCompletionCallback = processCallback; }
+    ReportModuleCompletionCallback GetReportModuleCompletionCallback() const { return this->reportModuleCompletionCallback; }
 
 #if DBG_DUMP || defined(PROFILE_EXEC) || defined(PROFILE_MEM)
     void EnsureParentInfo(Js::ScriptContext* scriptContext = NULL) override
@@ -268,12 +267,9 @@ public:
 #endif
 
 private:
-    template<typename Fn>
-    HRESULT FetchImportedModuleHelper(Fn fetch, LPCOLESTR specifier, Js::ModuleRecordBase** dependentModuleRecord);
     FetchImportedModuleCallBack fetchImportedModuleCallback;
     FetchImportedModuleFromScriptCallBack fetchImportedModuleFromScriptCallback;
     NotifyModuleReadyCallback notifyModuleReadyCallback;
+    InitializeImportMetaCallback initializeImportMetaCallback;
+    ReportModuleCompletionCallback reportModuleCompletionCallback;
 };
-
-
-

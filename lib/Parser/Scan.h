@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -337,8 +338,8 @@ typedef UTF8EncodingPolicyBase<false> NotNullTerminatedUTF8EncodingPolicy;
 
 interface IScanner
 {
-    virtual void GetErrorLineInfo(__out int32& ichMin, __out int32& ichLim, __out int32& line, __out int32& ichMinLine) = 0;
-    virtual HRESULT SysAllocErrorLine(int32 ichMinLine, __out BSTR* pbstrLine) = 0;
+    virtual void GetErrorLineInfo(_Out_ int32& ichMin, _Out_ int32& ichLim, _Out_ int32& line, _Out_ int32& ichMinLine) = 0;
+    virtual HRESULT SysAllocErrorLine(int32 ichMinLine, _Out_ BSTR* pbstrLine) = 0;
 };
 
 // Flags that can be provided to the Scan functions.
@@ -493,6 +494,10 @@ public:
       return m_EscapeOnLastTkStrCon;
     }
 
+    bool LastIdentifierHasEscape()
+    {
+        return m_lastIdentifierHasEscape;
+    }
 
     bool IsOctOrLeadingZeroOnLastTKNumber()
     {
@@ -590,7 +595,7 @@ public:
     }
 
     // IScanner methods
-    virtual void GetErrorLineInfo(__out int32& ichMin, __out int32& ichLim, __out int32& line, __out int32& ichMinLine)
+    virtual void GetErrorLineInfo(_Out_ int32& ichMin, _Out_ int32& ichLim, _Out_ int32& line, _Out_ int32& ichMinLine)
     {
         ichMin = this->IchMinError();
         ichLim = this->IchLimError();
@@ -603,7 +608,7 @@ public:
         }
     }
 
-    virtual HRESULT SysAllocErrorLine(int32 ichMinLine, __out BSTR* pbstrLine);
+    virtual HRESULT SysAllocErrorLine(int32 ichMinLine, _Out_ BSTR* pbstrLine);
 
     class TemporaryBuffer
     {
@@ -701,7 +706,8 @@ public:
         }
     };
 
-    tokens GetPrevious() { return m_tkPrevious; }
+    tokens GetPrevious() { return m_tokenPrevious.tk; }
+    Token GetPreviousToken() { return m_tokenPrevious; }
     void Capture(_Out_ RestorePoint* restorePoint);
     void SeekTo(const RestorePoint& restorePoint);
     void SeekToForcingPid(const RestorePoint& restorePoint);
@@ -730,6 +736,7 @@ private:
     BOOL m_doubleQuoteOnLastTkStrCon :1;
     bool m_OctOrLeadingZeroOnLastTKNumber :1;
     bool m_EscapeOnLastTkStrCon:1;
+    bool m_lastIdentifierHasEscape:1;
     BOOL m_fNextStringTemplateIsTagged:1;   // the next string template scanned has a tag (must create raw strings)
     BYTE m_DeferredParseFlags:2;            // suppressStrPid and suppressIdPid    
     bool es6UnicodeMode;                // True if ES6Unicode Extensions are enabled.
@@ -751,7 +758,7 @@ private:
     Js::ScriptContext* m_scriptContext;
     const Js::CharClassifier *charClassifier;
 
-    tokens m_tkPrevious;
+    Token m_tokenPrevious;
     size_t m_iecpLimTokPrevious;
     charcount_t m_ichLimTokPrevious;
 

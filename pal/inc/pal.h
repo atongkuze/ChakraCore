@@ -1,8 +1,10 @@
-//
-// Copyright (c) Microsoft. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//
-
+//-------------------------------------------------------------------------------------------------------
+// ChakraCore/Pal
+// Contains portions (c) copyright Microsoft, portions copyright (c) the .NET Foundation and Contributors
+// and edits (c) copyright the ChakraCore Contributors.
+// See THIRD-PARTY-NOTICES.txt in the project root for .NET Foundation license
+// Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
+//-------------------------------------------------------------------------------------------------------
 /*++
 
 Module Name:
@@ -45,6 +47,22 @@ Abstract:
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
+#endif
+
+// On some Linux distros, these system headers and their dependencies
+// (included through unicode headers in ChakraICU.h during ICU-enabled
+// builds in particular) contain macros like `#undef wcslen`, which
+// conflict with our PAL_* macros. As a workaround, include these system
+// headers early in front of our PAL_* definitions, so that when they
+// are included again later on, they would not undefine our macros.
+#if defined(PLATFORM_UNIX) && defined(HAS_ICU) && defined(PAL_STDCPP_COMPAT) && __cplusplus >= 201703L
+#include <cwchar>
+#include <string>
+#include <string_view>
+#endif
+
+#if !defined(static_assert)
+#define static_assert _Static_assert
 #endif
 
 #if defined(__APPLE__)
@@ -2492,7 +2510,8 @@ typedef struct _M128U {
 } M128U, *PM128U;
 
 // Same as _M128U but aligned to a 16-byte boundary
-typedef DECLSPEC_ALIGN(16) M128U M128A, *PM128A;
+typedef DECLSPEC_ALIGN(16) M128U M128A;
+typedef M128A *PM128A;
 
 typedef struct _XMM_SAVE_AREA32 {
     WORD   ControlWord;
@@ -2903,6 +2922,7 @@ typedef struct _IMAGE_ARM_RUNTIME_FUNCTION_ENTRY {
 
 #define CONTEXT_CONTROL (CONTEXT_ARM64 | 0x1L)
 #define CONTEXT_INTEGER (CONTEXT_ARM64 | 0x2L)
+#define CONTEXT_SEGMENTS (CONTEXT_ARM64 | 0x4L)
 #define CONTEXT_FLOATING_POINT  (CONTEXT_ARM64 | 0x4L)
 #define CONTEXT_DEBUG_REGISTERS (CONTEXT_ARM64 | 0x8L)
 
@@ -2990,7 +3010,11 @@ typedef struct DECLSPEC_ALIGN(16) _CONTEXT {
     // Integer registers
     //
 
+#ifdef __linux__
+    /* +0x004 */ DWORD PState;
+#else
     /* +0x004 */ DWORD Cpsr;       // NZVF + DAIF + CurrentEL + SPSel
+#endif
     /* +0x008 */ union {
                     struct {
                         DWORD64 X0;
@@ -3185,6 +3209,8 @@ PALIMPORT BOOL PALAPI PAL_VirtualUnwindOutOfProc(CONTEXT *context,
 #elif defined(__APPLE__) && defined(__i386__)
 #define PAL_CS_NATIVE_DATA_SIZE 76
 #elif defined(__APPLE__) && defined(__x86_64__)
+#define PAL_CS_NATIVE_DATA_SIZE 120
+#elif defined(__APPLE__) && defined(_ARM64_)
 #define PAL_CS_NATIVE_DATA_SIZE 120
 #elif defined(__LINUX__) && defined(__i386__)
 #define PAL_CS_NATIVE_DATA_SIZE 56
@@ -4709,11 +4735,29 @@ enum {
 //
 // A function table entry is generated for each frame function.
 //
+#ifdef _M_ARM64
+typedef struct _RUNTIME_FUNCTION {
+    DWORD BeginAddress;
+    union {
+        DWORD UnwindData;
+        struct {
+            DWORD Flag           : 2;
+            DWORD FunctionLength : 11;
+            DWORD RegF           : 3;
+            DWORD RegI           : 4;
+            DWORD H              : 1;
+            DWORD CR             : 2;
+            DWORD FrameSize      : 9;
+        };
+    };
+} RUNTIME_FUNCTION, *PRUNTIME_FUNCTION;
+#else
 typedef struct _RUNTIME_FUNCTION {
     DWORD BeginAddress;
     DWORD EndAddress;
     DWORD UnwindData;
 } RUNTIME_FUNCTION, *PRUNTIME_FUNCTION;
+#endif
 
 PALIMPORT
 BOOL
@@ -5806,11 +5850,6 @@ RtlCaptureContext(
   OUT PCONTEXT ContextRecord
 );
 
-PALIMPORT
-VOID
-PALAPI
-FlushProcessWriteBuffers();
-
 typedef void (*PAL_ActivationFunction)(CONTEXT *context);
 typedef BOOL (*PAL_SafeActivationCheckFunction)(SIZE_T ip, BOOL checkingCurrentThread);
 
@@ -5820,13 +5859,6 @@ PALAPI
 PAL_SetActivationFunction(
     IN PAL_ActivationFunction pActivationFunction,
     IN PAL_SafeActivationCheckFunction pSafeActivationCheckFunction);
-
-PALIMPORT
-BOOL
-PALAPI
-PAL_InjectActivation(
-    IN HANDLE hThread
-);
 
 #define VER_PLATFORM_WIN32_WINDOWS        1
 #define VER_PLATFORM_WIN32_NT        2
@@ -6085,7 +6117,6 @@ CoCreateGuid(OUT GUID * pguid);
 #define towupper      PAL_towupper
 #define vsprintf      PAL_vsprintf
 #define vswprintf     PAL_vswprintf
-#define realloc       PAL_realloc
 #define fopen         PAL_fopen
 #define strtok        PAL_strtok
 #define strtoul       PAL_strtoul
@@ -6118,16 +6149,7 @@ CoCreateGuid(OUT GUID * pguid);
 #define ungetc        PAL_ungetc
 #define setvbuf       PAL_setvbuf
 #define atol          PAL_atol
-#define acos          PAL_acos
-#define asin          PAL_asin
-#define atan2         PAL_atan2
-#define exp           PAL_exp
-#define labs          PAL_labs
-#define log           PAL_log
-#define log10         PAL_log10
-#define malloc        PAL_malloc
 #define memmove       memmove_xplat
-#define free          PAL_free
 #define mkstemp       PAL_mkstemp
 #define rename        PAL_rename
 #define unlink        PAL_unlink
@@ -6191,7 +6213,7 @@ PALIMPORT int __cdecl vsprintf(char *, const char *, va_list);
 PALIMPORT int __cdecl sscanf(const char *, const char *, ...);
 PALIMPORT int __cdecl atoi(const char *);
 PALIMPORT LONG __cdecl atol(const char *);
-PALIMPORT long long int __cdecl atoll(const char *);
+//PALIMPORT long long int __cdecl atoll(const char *) __THROW;
 PALIMPORT ULONG __cdecl strtoul(const char *, char **, int);
 PALIMPORT double __cdecl atof(const char *);
 PALIMPORT double __cdecl strtod(const char *, char **);
@@ -6368,39 +6390,6 @@ unsigned long long __cdecl _rotr64(unsigned long long value, int shift)
 }
 #endif
 
-PALIMPORT int __cdecl abs(int);
-PALIMPORT double __cdecl fabs(double);
-#ifndef PAL_STDCPP_COMPAT
-PALIMPORT LONG __cdecl labs(LONG);
-PALIMPORT double __cdecl fabs(double);
-#endif // !PAL_STDCPP_COMPAT
-// clang complains if this is declared with __int64
-PALIMPORT long long __cdecl llabs(long long);
-
-PALIMPORT double __cdecl sqrt(double);
-PALIMPORT double __cdecl log(double);
-PALIMPORT double __cdecl log10(double);
-PALIMPORT double __cdecl exp(double);
-PALIMPORT double __cdecl acos(double);
-PALIMPORT double __cdecl asin(double);
-PALIMPORT double __cdecl atan(double);
-PALIMPORT double __cdecl atan2(double,double);
-PALIMPORT double __cdecl cos(double);
-PALIMPORT double __cdecl sin(double);
-PALIMPORT double __cdecl tan(double);
-PALIMPORT double __cdecl cosh(double);
-PALIMPORT double __cdecl sinh(double);
-PALIMPORT double __cdecl tanh(double);
-PALIMPORT double __cdecl fmod(double, double);
-PALIMPORT float __cdecl fmodf(float, float);
-PALIMPORT double __cdecl floor(double);
-PALIMPORT float __cdecl floorf(float);
-PALIMPORT double __cdecl ceil(double);
-PALIMPORT float __cdecl ceilf(float);
-PALIMPORT float __cdecl fabsf(float);
-PALIMPORT double __cdecl modf(double, double *);
-PALIMPORT float __cdecl modff(float, float *);
-
 PALIMPORT int __cdecl _finite(double);
 PALIMPORT int __cdecl _isnan(double);
 PALIMPORT double __cdecl _copysign(double, double);
@@ -6420,9 +6409,13 @@ inline __int64 abs(__int64 _X) {
 #endif
 #endif
 
-PALIMPORT void * __cdecl malloc(size_t);
-PALIMPORT void   __cdecl free(void *);
-PALIMPORT void * __cdecl realloc(void *, size_t);
+#ifdef INCLUDE_PAL_INTERNAL_
+/* FIXME remove
+ * PAL wrappers around memory management functions, only used inside PAL */
+PALIMPORT void * __cdecl PAL_malloc(size_t);
+PALIMPORT void   __cdecl PAL_free(void *);
+PALIMPORT void * __cdecl PAL_realloc(void *, size_t);
+#endif
 PALIMPORT char * __cdecl _strdup(const char *);
 
 #if defined(_MSC_VER)

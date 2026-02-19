@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -56,6 +57,28 @@ function simpleThrowFunc() {
 var global = (function() { return this; }());
 
 var tests = [
+    {
+        name: "Generator function with overwritten prototype",
+        body: function () {
+            function* gf() {};
+            var gfp = gf.prototype;
+            assert.strictEqual(gf().__proto__, gfp, "Generator function uses prototype.");
+            var obj = {};
+            gf.prototype = obj;
+            assert.strictEqual(gf().__proto__, obj, "Generator function uses overwritten prototype.");
+            gf.prototype = 1;
+            assert.areEqual(gf().__proto__.toString(), gfp.toString(), "Generator function falls back to original prototype.");
+            if (gf().__proto__ === gfp) { assert.error("Original prototype should not be same object as gfp")}
+            var originalGfp = gf().__proto__;
+            assert.strictEqual(gf().__proto__, originalGfp, "Generator function falls back to original prototype.");
+            gf.prototype = 0;
+            assert.strictEqual(gf().__proto__, originalGfp, "Generator function falls back to original prototype.");
+            gf.prototype = "hi";
+            assert.strictEqual(gf().__proto__, originalGfp, "Generator function falls back to original prototype.");
+            delete gfp.prototype;
+            assert.strictEqual(gf().__proto__, originalGfp, "Generator function falls back to original prototype.");
+        }
+    },
     {
         name: "Simple generator functions with no parameters or locals or captures",
         body: function () {
@@ -1376,7 +1399,7 @@ var tests = [
             assert.areEqual({value: 2, done: true}, g.return(2), "As the return property is missing the yield* just returns as is");
             g = gf();
             assert.areEqual({value: 1, done: false}, g.next(), "Get the first yield value from the inner iterator");
-            assert.throws(function () { g.throw(new ExpectedException()); }, TypeError, "As the throw property is missing a TypeError is thrown", "The value of the property 'throw' is not a Function object");
+            assert.throws(function () { g.throw(new ExpectedException()); }, TypeError, "As the throw property is missing a TypeError is thrown", "Yielded iterator does not have a 'throw' method");
 
             var iteratorWithNullAsReturn = CreateIterable(simpleNextFunc, null);
             gf = function* () { yield* iteratorWithNullAsReturn; };
@@ -1389,17 +1412,17 @@ var tests = [
             gf = function* () { yield* iteratorWithNullAsThrow; };
             g = gf();
             assert.areEqual({value: 1, done: false}, g.next(), "Get the first yield value from the inner iterator");
-            assert.throws(() => g.throw(), TypeError, "As the throw property is null a TypeError is thrown", "The value of the property 'throw' is not a Function object");
+            assert.throws(() => g.throw(), TypeError, "As the throw property is null a TypeError is thrown", "Yielded iterator does not have a 'throw' method");
             assert.isTrue(returnCalled, "As the throw property is null, .return() is called");
 
             var iteratorWithBadReturnAndThrow = CreateIterable(simpleNextFunc, {}, {});
             gf = function* () { yield* iteratorWithBadReturnAndThrow; }
             g = gf();
             assert.areEqual({value: 1, done: false}, g.next(), "Get the first yield value from the inner iterator");
-            assert.throws(function () { g.return(100); }, TypeError, "Trying to invoke the return method which is an object not method causes a TypeError", "The value of the property 'return' is not a Function object");
+            assert.throws(function () { g.return(100); }, TypeError, "Trying to invoke the return method which is an object not method causes a TypeError", "Function expected");
             g = gf();
             assert.areEqual({value: 1, done: false}, g.next(), "Get the first yield value from the inner iterator");
-            assert.throws(function () { g.throw(100); }, TypeError, "Trying to invoke the throw method which is an object not method causes a TypeError", "The value of the property 'throw' is not a Function object");
+            assert.throws(function () { g.throw(100); }, TypeError, "Trying to invoke the throw method which is an object not method causes a TypeError", "Function expected");
 
             var iteratorReturningNonObj = CreateIterable(simpleNextFunc, () => { return this.i; }, () => { return this.i; });
             gf = function* () { yield* iteratorReturningNonObj; }
@@ -1711,7 +1734,7 @@ var tests = [
             g1.return = function() { closed = true; return {done: true}; }
             g2 = gf2();
             g2.next();
-            assert.throws(function() { g2['throw'](new ExpectedException()) }, TypeError, "As the throw property is missing a TypeError is thrown", "The value of the property 'throw' is not a Function object");
+            assert.throws(function() { g2['throw'](new ExpectedException()) }, TypeError, "As the throw property is missing a TypeError is thrown", "Yielded iterator does not have a 'throw' method");
             assert.isTrue(closed, "When throw method is not defined on the iterator IteratorClose is called");
 
             g1 = gf1();

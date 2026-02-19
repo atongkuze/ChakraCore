@@ -39,6 +39,7 @@
         "#__proto__": {
           "#__proto__": "Object {...}",
           "constructor": "function <large string>",
+          "at": "function <large string>",
           "push": "function <large string>",
           "concat": "function <large string>",
           "join": "function <large string>",
@@ -58,7 +59,9 @@
           "reduceRight": "function <large string>",
           "some": "function <large string>",
           "find": "function <large string>",
+          "findLast": "function <large string>",
           "findIndex": "function <large string>",
+          "findLastIndex": "function <large string>",
           "Symbol.unscopables": "Object {...}",
           "fill": "function <large string>",
           "copyWithin": "function <large string>",
@@ -98,7 +101,6 @@
         },
         "[4]": {
           "#__proto__": "Object {...}",
-          "description": "string ErrorObj",
           "message": "string ErrorObj",
           "stack": "string <large string>",
           "[105]": "string 105"

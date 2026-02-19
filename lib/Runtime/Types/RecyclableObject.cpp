@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeTypePch.h"
@@ -330,13 +331,20 @@ namespace Js
         Assert(!this->GetScriptContext()->GetThreadContext()->IsScriptActive());
         return E_NOINTERFACE;
     }
-    RecyclableObject* RecyclableObject::GetThisObjectOrUnWrap()
+
+    RecyclableObject* RecyclableObject::GetUnwrappedObject()
     {
         if (VarIs<UnscopablesWrapperObject>(this))
         {
-            return VarTo<UnscopablesWrapperObject>(this)->GetWrappedObject();
+            return UnsafeVarTo<UnscopablesWrapperObject>(this)->GetWrappedObject();
         }
         return this;
+    }
+
+    RecyclableObject* RecyclableObject::GetThisAndUnwrappedInstance(Var* thisVar) const
+    {
+         *thisVar = this->GetLibrary()->GetUndefined();
+        return (RecyclableObject*)this;
     }
 
     // In order to avoid a branch, every object has an entry point if it gets called like a
@@ -499,7 +507,7 @@ namespace Js
         return false;
     }
 
-    BOOL RecyclableObject::StrictEquals(__in Var aRight, __out BOOL* value, ScriptContext * requestContext)
+    BOOL RecyclableObject::StrictEquals(_In_ Var aRight, _Out_ BOOL* value, ScriptContext * requestContext)
     {
         *value = false;
         //StrictEquals is handled in JavascriptOperators::StrictEqual
@@ -507,14 +515,11 @@ namespace Js
     }
 
 #pragma fenv_access (on)
-    BOOL RecyclableObject::Equals(__in Var aRight, __out BOOL* value, ScriptContext * requestContext)
+    BOOL RecyclableObject::Equals(_In_ Var aRight, _Out_ BOOL* value, ScriptContext * requestContext)
     {
         Var aLeft = this;
         if (aLeft == aRight)
         {
-            //In ES5 mode strict equals (===) on same instance of object type VariantDate succeeds.
-            //Hence equals needs to succeed.
-            //goto ReturnTrue;
             *value = TRUE;
             return TRUE;
         }

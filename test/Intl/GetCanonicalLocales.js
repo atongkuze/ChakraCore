@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -90,9 +91,15 @@ var tests = [
             // V8 and CC-ICU also give the default value of "yes" to non-boolean keys (co), which also is incorrect.
             // Everyone (should) correctly re-order extension keys alphabetically
             // Microsoft/ChakraCore#4490 tracks the incorrect defaulting, Microsoft/ChakraCore#2964 tracks the overall investigation
-            equal("de-DE-u-co-kn", "de-DE-u-co-yes-kn-true", gcl("de-de-u-kn-co")[0]);
-            equal("de-DE-u-co-phonebk-kn", "de-DE-u-co-phonebk-kn-true", gcl("de-de-u-kn-co-phonebk")[0]);
-            equal("de-DE-u-co-phonebk-kn-yes", "de-DE-u-co-phonebk-kn-true", gcl("de-DE-u-kn-yes-co-phonebk")[0]);
+            if (WScript.Platform.ICU_VERSION < 62) {
+                assert.areEqual(["de-DE-u-co-yes-kn-true"], Intl.getCanonicalLocales("de-de-u-kn-co"))
+                assert.areEqual(["de-DE-u-co-phonebk-kn-true"], Intl.getCanonicalLocales("de-de-u-kn-co-phonebk"))
+                assert.areEqual(["de-DE-u-co-phonebk-kn-true"], Intl.getCanonicalLocales("de-DE-u-kn-yes-co-phonebk"))
+            } else {
+                assert.areEqual(["de-DE-u-co-kn"], Intl.getCanonicalLocales("de-de-u-kn-co"))
+                assert.areEqual(["de-DE-u-co-phonebk-kn"], Intl.getCanonicalLocales("de-de-u-kn-co-phonebk"))
+                assert.areEqual(["de-DE-u-co-phonebk-kn"], Intl.getCanonicalLocales("de-DE-u-kn-yes-co-phonebk"))
+            }
 
             // De-dupe after locales are canonicalized
             assert.areEqual(Intl.getCanonicalLocales(['en-us', 'en-us']), ['en-US'], "No duplicates, same input casing (casing was incorrect)");
@@ -100,8 +107,8 @@ var tests = [
             assert.areEqual(Intl.getCanonicalLocales(['en-us', 'en-US']), ['en-US'], "No duplicates, different input casing");
 
             assert.areEqual(
+                ["de-DE", "de-DE-u-co-phonebk-kn"],
                 Intl.getCanonicalLocales(["de-de", "de-DE-u-co-phonebk-kn-true", "de-DE-u-kn-true-co-phonebk"]),
-                ["de-DE", "de-DE-u-co-phonebk-kn-true"],
                 "No duplicates after re-ordering options"
             );
         }
@@ -122,8 +129,12 @@ var tests = [
             // TODO (doilij): Investigate what is correct/allowable here (Microsoft/ChakraCore#2964)
             equal("xx-zzz", "zzz", gcl("xx-zzz")[0]);
 
-            // See discussion of defaulting above (V8/CC-ICU and CC-WinGlob/SM distinction remains true here)
-            equal("xx-ZZ-u-yy-zz", "xx-ZZ-u-yy-yes-zz-yes", gcl("xx-zz-u-zz-yy")[0]);
+            // See discussion of defaulting above
+            if (WScript.Platform.ICU_VERSION < 62) {
+                assert.areEqual(["xx-ZZ-u-yy-yes-zz-yes"], Intl.getCanonicalLocales("xx-zz-u-zz-yy"));
+            } else {
+                assert.areEqual(["xx-ZZ-u-yy-zz"], Intl.getCanonicalLocales("xx-zz-u-zz-yy"));
+            }
         }
     },
     {
@@ -139,7 +150,9 @@ var tests = [
 
             // duplicateTags.forEach(testRangeError);
             duplicateSingletons.forEach(testRangeError);
-            duplicateUnicodeExtensionKeys.forEach(testRangeError);
+            if (WScript.Platform.INTL_LIBRARY === "winglob") {
+                duplicateUnicodeExtensionKeys.forEach(testRangeError);
+            }
         }
     },
     {

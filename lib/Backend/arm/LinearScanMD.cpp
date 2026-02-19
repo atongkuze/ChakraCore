@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "Backend.h"
@@ -25,7 +26,7 @@ LinearScanMD::Init(LinearScan *linearScan)
         func->m_regsUsed.Set(localsReg);
     }
 
-    memset(this->vfpSymTable, 0, sizeof(this->vfpSymTable));
+    memset((void*)this->vfpSymTable, 0, sizeof(this->vfpSymTable));
 }
 
 StackSym *
@@ -343,12 +344,6 @@ LinearScanMD::GenerateBailOut(
     Assert(instr->GetSrc1()->IsHelperCallOpnd());
     LinearScan::InsertMove(IR::RegOpnd::New(nullptr, RegLR, TyMachPtr, func), instr->GetSrc1(), instr);
     instr->ReplaceSrc1(IR::RegOpnd::New(nullptr, RegLR, TyMachPtr, func));
-}
-
-IR::Instr *
-LinearScanMD::GenerateBailInForGeneratorYield(IR::Instr * resumeLabelInstr, BailOutInfo * bailOutInfo)
-{
-    Js::Throw::NotImplemented();
 }
 
 uint LinearScanMD::GetRegisterSaveIndex(RegNum reg)

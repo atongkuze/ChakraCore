@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -26,7 +27,7 @@ typedef unsigned long ulong;
 
 typedef signed char sbyte;
 
-typedef __int8 int8;
+typedef signed __int8 int8;
 typedef __int16 int16;
 typedef __int32 int32;
 typedef __int64 int64;

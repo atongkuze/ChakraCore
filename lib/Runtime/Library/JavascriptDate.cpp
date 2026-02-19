@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2022 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
@@ -11,7 +12,7 @@ namespace Js
     JavascriptDate::JavascriptDate(double value, DynamicType * type)
         : DynamicObject(type), m_date(value)
     {
-        Assert(IsDateTypeId(type->GetTypeId()));
+        Assert(type->GetTypeId() == TypeIds_Date);
     }
 
     JavascriptDate::JavascriptDate(DynamicType * type)
@@ -162,6 +163,8 @@ namespace Js
                     timeValue = JavascriptConversion::ToNumber(value, scriptContext);
                 }
             }
+            
+            timeValue = TimeClip(JavascriptNumber::New(timeValue, scriptContext));
 
             pDate->m_date.SetTvUtc(timeValue);
             return pDate;
@@ -213,6 +216,38 @@ namespace Js
         pDate->m_date.SetTvLcl(timeValue, scriptContext);
 
         return pDate;
+    }
+
+    // Implementation of ECMA 262 #sec-timeclip
+    double JavascriptDate::TimeClip(Var x)
+    {
+        double time = 0.0;
+        if (TaggedInt::Is(x))
+        {
+            time = TaggedInt::ToDouble(x);
+        }
+        else
+        {
+            AssertOrFailFast(JavascriptNumber::Is(x));
+            time = JavascriptNumber::GetValue(x);
+
+            // Only perform steps 1, 3, and 4 if the input was not a TaggedInt, since TaggedInts cant be infinite or -0
+            if (!NumberUtilities::IsFinite(time))
+            {
+                return NumberConstants::NaN;
+            }
+
+            // This performs both steps 3 and 4
+            time = JavascriptConversion::ToInteger(time);
+        }
+
+        // Step 2: If abs(time) > 8.64e15, return NaN.
+        if (Math::Abs(time) > 8.64e15)
+        {
+            return NumberConstants::NaN;
+        }
+
+        return time;
     }
 
     // Date.prototype[@@toPrimitive] as described in ES6 spec (Draft May 22, 2014) 20.3.4.45
@@ -730,31 +765,6 @@ namespace Js
         JavascriptDate* date = VarTo<JavascriptDate>(args[0]);
 
         return JavascriptDate::GetUTCDateData(date, DateImplementation::DateData::Seconds, scriptContext);
-    }
-
-    Var JavascriptDate::EntryGetVarDate(RecyclableObject* function, CallInfo callInfo, ...)
-    {
-        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
-
-        ARGUMENTS(args, callInfo);
-        ScriptContext* scriptContext = function->GetScriptContext();
-
-        Assert(!(callInfo.Flags & CallFlags_New));
-
-        if (args.Info.Count == 0 || !VarIs<JavascriptDate>(args[0]))
-        {
-            Var result = nullptr;
-            if (TryInvokeRemotely(EntryGetVarDate, scriptContext, args, &result))
-            {
-                return result;
-            }
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedDate, _u("Date.prototype.getVarDate"));
-        }
-        JavascriptDate* date = VarTo<JavascriptDate>(args[0]);
-
-        return scriptContext->GetLibrary()->CreateVariantDate(
-            DateImplementation::VarDateFromJsUtcTime(date->GetTime(), scriptContext)
-            );
     }
 
     Var JavascriptDate::EntryParse(RecyclableObject* function, CallInfo callInfo, ...)

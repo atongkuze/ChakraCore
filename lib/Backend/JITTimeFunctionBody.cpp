@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -14,9 +15,9 @@ JITTimeFunctionBody::JITTimeFunctionBody(FunctionBodyDataIDL * bodyData) :
 /* static */
 void
 JITTimeFunctionBody::InitializeJITFunctionData(
-    __in ArenaAllocator * arena,
-    __in Js::FunctionBody *functionBody,
-    __out FunctionBodyDataIDL * jitBody)
+    _In_ ArenaAllocator * arena,
+    _In_ Js::FunctionBody *functionBody,
+    _Out_ FunctionBodyDataIDL * jitBody)
 {
     Assert(functionBody != nullptr);
 
@@ -162,6 +163,7 @@ JITTimeFunctionBody::InitializeJITFunctionData(
         }
     }
 
+    jitBody->yieldReg = functionBody->GetYieldRegister();
     jitBody->localFrameDisplayReg = functionBody->GetLocalFrameDisplayRegister();
     jitBody->localClosureReg = functionBody->GetLocalClosureRegister();
     jitBody->envReg = functionBody->GetEnvRegister();
@@ -399,6 +401,12 @@ Js::RegSlot
 JITTimeFunctionBody::GetLocalFrameDisplayReg() const
 {
     return static_cast<Js::RegSlot>(m_bodyData.localFrameDisplayReg);
+}
+
+Js::RegSlot
+JITTimeFunctionBody::GetYieldReg() const
+{
+    return static_cast<Js::RegSlot>(m_bodyData.yieldReg);
 }
 
 Js::RegSlot
@@ -817,6 +825,12 @@ JITTimeFunctionBody::NeedScopeObjectForArguments(bool hasNonSimpleParams) const
 }
 
 bool
+JITTimeFunctionBody::RegIsConstant(Js::RegSlot reg) const
+{
+    return reg > 0 && reg < this->GetConstCount();
+}
+
+bool
 JITTimeFunctionBody::GetDoScopeObjectCreation() const
 {
     return !!m_bodyData.doScopeObjectCreation;
@@ -1067,7 +1081,9 @@ JITTimeFunctionBody::GetCallApplyCallSiteIdForCallSiteId(Js::ProfileId callSiteI
     if (m_bodyData.callSiteToCallApplyCallSiteArray)
     {
         callApplyId = m_bodyData.callSiteToCallApplyCallSiteArray[callSiteId];
-        AssertOrFailFast(callApplyId < m_bodyData.profiledCallApplyCallSiteCount);
+        AssertOrFailFast(
+            callApplyId == Js::Constants::NoProfileId || 
+            callApplyId < m_bodyData.profiledCallApplyCallSiteCount);
     }
     
     return callApplyId;

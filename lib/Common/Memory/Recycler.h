@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -337,10 +338,6 @@ public:
 #endif
     virtual void DisposeObjects(Recycler * recycler) = 0;
     virtual void PreDisposeObjectsCallBack() = 0;
-#ifdef ENABLE_PROJECTION
-    virtual void MarkExternalWeakReferencedObjects(bool inPartialCollect) = 0;
-    virtual void ResolveExternalWeakReferencedObjects() = 0;
-#endif
 #if DBG || defined(PROFILE_EXEC)
     virtual bool AsyncHostOperationStart(void *) = 0;
     virtual void AsyncHostOperationEnd(bool wasInAsync, void *) = 0;
@@ -440,11 +437,6 @@ public:
 #endif
     virtual void DisposeObjects(Recycler * recycler) override;
     virtual void PreDisposeObjectsCallBack() override {};
-
-#ifdef ENABLE_PROJECTION
-    virtual void MarkExternalWeakReferencedObjects(bool inPartialCollect) override {};
-    virtual void ResolveExternalWeakReferencedObjects() override {};
-#endif
 #if DBG || defined(PROFILE_EXEC)
     virtual bool AsyncHostOperationStart(void *) override { return false; };
     virtual void AsyncHostOperationEnd(bool wasInAsync, void *) override {};
@@ -963,7 +955,6 @@ private:
 
 #if DBG || defined RECYCLER_TRACE
     uint collectionCount;
-    bool inResolveExternalWeakReferences;
 #endif
 
     bool allowDispose;
@@ -1842,7 +1833,7 @@ private:
 #endif // ENABLE_CONCURRENT_GC
 
     bool ForceSweepObject();
-    void NotifyFree(__in char * address, size_t size);
+    void NotifyFree(_In_ char * address, size_t size);
     template <typename T>
     void NotifyFree(T * heapBlock);
 
@@ -1851,7 +1842,7 @@ private:
 #ifdef ENABLE_JS_ETW
     ULONG EventWriteFreeMemoryBlock(HeapBlock* heapBlock);
     void FlushFreeRecord();
-    void AppendFreeMemoryETWRecord(__in char *address, size_t size);
+    void AppendFreeMemoryETWRecord(_In_ char *address, size_t size);
     static const uint BulkFreeMemoryCount = 400;
     uint bulkFreeMemoryWrittenCount;
     struct ETWFreeRecord {
@@ -1904,9 +1895,6 @@ private:
 #if DBG
     bool allowAllocationDuringHeapEnum;
     bool allowAllocationDuringRenentrance;
-#ifdef ENABLE_PROJECTION
-    bool isInRefCountTrackingForProjection;
-#endif
 #endif
     // There are two scenarios we allow limited allocation but disallow GC during those allocations:
     // in heapenum when we allocate PropertyRecord, and
@@ -1928,7 +1916,7 @@ public:
 private:
     static bool DoProfileAllocTracker();
     void InitializeProfileAllocTracker();
-    void TrackUnallocated(__in  char* address, __in char *endAddress, size_t sizeCat);
+    void TrackUnallocated(_In_  char* address, _In_ char *endAddress, size_t sizeCat);
     void TrackAllocCore(void * object, size_t size, const TrackAllocData& trackAllocData, bool traceLifetime = false);
     void* TrackAlloc(void * object, size_t size, const TrackAllocData& trackAllocData, bool traceLifetime = false);
 
@@ -2034,15 +2022,6 @@ public:
     public:
         AutoAllowAllocationDuringHeapEnum(Recycler * recycler) : AutoBooleanToggle(&recycler->allowAllocationDuringHeapEnum) {};
     };
-
-#ifdef ENABLE_PROJECTION
-    bool IsInRefCountTrackingForProjection() const { return isInRefCountTrackingForProjection;}
-    class AutoIsInRefCountTrackingForProjection : public AutoBooleanToggle
-    {
-    public:
-        AutoIsInRefCountTrackingForProjection(Recycler * recycler) : AutoBooleanToggle(&recycler->isInRefCountTrackingForProjection) {};
-    };
-#endif
 #endif
 
     class AutoAllowAllocationDuringReentrance : public AutoBooleanToggle

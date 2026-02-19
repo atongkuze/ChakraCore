@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -16,7 +17,7 @@ public:
 
     virtual LPCTSTR GetLibraryName() const = 0;
 
-    FARPROC GetFunction(__in LPCSTR lpFunctionName);
+    FARPROC GetFunction(_In_ LPCSTR lpFunctionName);
 
     void EnsureFromSystemDirOnly();
     bool IsAvailable();
@@ -171,7 +172,7 @@ public:
         _In_ ULONG_PTR RangeBase,
         _In_ ULONG_PTR RangeEnd);
     VOID DeleteGrowableFunctionTable(_In_ PVOID DynamicTable);
-    VOID GrowFunctionTable(__inout PVOID DynamicTable, __in ULONG NewEntryCount);
+    VOID GrowFunctionTable(__inout PVOID DynamicTable, _In_ ULONG NewEntryCount);
 #endif
 
     // we do not have the header where this macro is defined, so implement ourselves
@@ -222,4 +223,45 @@ public:
         _In_ ULONG MapType
     );
 };
+
+// This needs to be delay loaded because RpcServerRegisterIf3 is available only
+// on Win8+
+class RPCLibrary : protected DelayLoadLibrary
+{
+private:
+    typedef RPC_STATUS(NTAPI* PFnRpcServerRegisterIf3)(
+        _In_ RPC_IF_HANDLE IfSpec,
+        _In_opt_ UUID* MgrTypeUuid,
+        _In_opt_ RPC_MGR_EPV* MgrEpv,
+        _In_ unsigned int Flags,
+        _In_ unsigned int MaxCalls,
+        _In_ unsigned int MaxRpcSize,
+        _In_opt_ RPC_IF_CALLBACK_FN* IfCallback,
+        _In_opt_ void* SecurityDescriptor);
+
+    PFnRpcServerRegisterIf3 serverRegister;
+
+public:
+    static RPCLibrary* Instance;
+
+    RPCLibrary() : DelayLoadLibrary(),
+        serverRegister(nullptr)
+    {
+        this->EnsureFromSystemDirOnly();
+    }
+
+    LPCTSTR GetLibraryName() const;
+
+    RPC_STATUS RpcServerRegisterIf3(
+        _In_ RPC_IF_HANDLE IfSpec,
+        _In_opt_ UUID* MgrTypeUuid,
+        _In_opt_ RPC_MGR_EPV* MgrEpv,
+        _In_ unsigned int Flags,
+        _In_ unsigned int MaxCalls,
+        _In_ unsigned int MaxRpcSize,
+        _In_opt_ RPC_IF_CALLBACK_FN* IfCallback,
+        _In_opt_ void* SecurityDescriptor
+    );
+};
+
 #endif

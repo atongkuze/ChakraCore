@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "CommonCorePch.h"
@@ -85,6 +86,7 @@ AutoSystemInfo::Initialize()
     allocationGranularityPageCount = dwAllocationGranularity / dwPageSize;
 
     isWindows8OrGreater = IsWindows8OrGreater();
+    isWindows8Point1OrGreater = IsWindows8Point1OrGreater();
 
     binaryName[0] = _u('\0');
 
@@ -363,14 +365,28 @@ AutoSystemInfo::CheckForAtom() const
 bool
 AutoSystemInfo::IsWin8OrLater()
 {
+#if defined(WINVER) && WINVER >= _WIN32_WINNT_WIN8
+    return true;
+#else
     return isWindows8OrGreater;
+#endif
+}
+
+bool
+AutoSystemInfo::IsWin8Point1OrLater()
+{
+#if defined(WINVER) && WINVER >= _WIN32_WINNT_WINBLUE
+    return true;
+#else
+    return isWindows8Point1OrGreater;
+#endif
 }
 
 #if defined(_CONTROL_FLOW_GUARD)
 bool
 AutoSystemInfo::IsWinThresholdOrLater()
 {
-#if defined(_M_ARM64)
+#if defined(_M_ARM64) || (defined(WINVER) && WINVER >= _WIN32_WINNT_WIN10)
     return true;
 #else
     return IsWindowsThresholdOrGreater();
@@ -478,7 +494,7 @@ HRESULT AutoSystemInfo::GetJscriptFileVersion(DWORD* majorVersion, DWORD* minorV
 //
 // Returns the major and minor version of the binary passed as argument.
 //
-HRESULT AutoSystemInfo::GetVersionInfo(__in LPCWSTR pszPath, DWORD* majorVersion, DWORD* minorVersion)
+HRESULT AutoSystemInfo::GetVersionInfo(_In_ LPCWSTR pszPath, DWORD* majorVersion, DWORD* minorVersion)
 {
 #ifdef _WIN32
     DWORD   dwTemp;

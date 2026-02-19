@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -24,7 +25,7 @@ namespace Js
             isDebuggerSkip(false), byteCodeOffsetAfterDebuggerSkip(Constants::InvalidByteCodeOffset), hasDebuggerLogged(false),
             isFirstChance(false), isExceptionCaughtInNonUserCode(false), ignoreAdvanceToNextStatement(false),
 #endif
-            hostWrapperCreateFunc(nullptr), isGeneratorReturnException(false),
+            hostWrapperCreateFunc(nullptr),
             next(nullptr)
         {
             if (exceptionContextIn)
@@ -33,7 +34,7 @@ namespace Js
             }
             else
             {
-                memset(&exceptionContext, 0, sizeof(exceptionContext));
+                memset((void*)&exceptionContext, 0, sizeof(exceptionContext));
             }
 #if ENABLE_DEBUG_STACK_BACK_TRACE
             this->stackBackTrace = nullptr;
@@ -147,7 +148,7 @@ namespace Js
         void SetThrownObject(Var object)
         {
             // Only pending exception object and generator return exception use this API.
-            Assert(this->isPendingExceptionObject || this->isGeneratorReturnException);
+            Assert(this->isPendingExceptionObject);
             this->thrownObject = object;
         }
         JavascriptExceptionObject* CloneIfStaticExceptionObject(ScriptContext* scriptContext);
@@ -158,18 +159,6 @@ namespace Js
         }
 
         bool IsPendingExceptionObject() const { return isPendingExceptionObject; }
-
-
-        void SetGeneratorReturnException(bool is)
-        {
-            isGeneratorReturnException = is;
-        }
-
-        bool IsGeneratorReturnException()
-        {
-            // Used by the generators to throw an exception to indicate the return from generator function
-            return isGeneratorReturnException;
-        }
 
     private:
         friend class ::ThreadContext;
@@ -186,7 +175,6 @@ namespace Js
 
         Field(const bool) tag : 1;               // Tag the low bit to prevent possible GC false references
         Field(bool)       isPendingExceptionObject : 1;
-        Field(bool)       isGeneratorReturnException : 1;
 
 #ifdef ENABLE_SCRIPT_DEBUGGING
         Field(bool)       isDebuggerSkip : 1;
@@ -209,19 +197,5 @@ namespace Js
         Field(JavascriptExceptionObject*) next;  // to temporarily store list of throwing exceptions
 
         PREVENT_COPY(JavascriptExceptionObject)
-    };
-
-    class GeneratorReturnExceptionObject : public JavascriptExceptionObject
-    {
-    public:
-        GeneratorReturnExceptionObject(Var object, ScriptContext * scriptContext)
-            : JavascriptExceptionObject(object, scriptContext, nullptr)
-        {
-#ifdef ENABLE_SCRIPT_DEBUGGING
-            this->SetDebuggerSkip(true);
-            this->SetIgnoreAdvanceToNextStatement(true);
-#endif
-            this->SetGeneratorReturnException(true);
-        }
     };
 }

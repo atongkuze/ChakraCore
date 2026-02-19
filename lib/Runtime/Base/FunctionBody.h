@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -725,6 +726,7 @@ namespace Js
 #if ENABLE_NATIVE_CODEGEN
         Field(uint) rejitCount;
 #endif
+        Field(bool) hasYield;
         Field(bool) isNested;
         Field(bool) isInTry;
         Field(bool) isInTryFinally;
@@ -854,6 +856,12 @@ namespace Js
     typedef Field(FunctionInfo*)* FunctionInfoArray;
     typedef Field(FunctionInfo*)* FunctionInfoPtrPtr;
 
+    struct PrintOffsets
+    {
+        uint cbStartPrintOffset;
+        uint cbEndPrintOffset;
+    };
+
     //
     // FunctionProxy represents a user defined function
     // This could be either from a source file or the byte code cache
@@ -905,7 +913,7 @@ namespace Js
             CodeGenCallApplyTargetRuntimeData = 26,
             CallSiteToCallApplyCallSiteArray = 27,
 #endif
-
+            PrintOffsets = 28,
             Max,
             Invalid = 0xff
         };
@@ -954,6 +962,7 @@ namespace Js
         AuxPointerTypeEntry(AuxPointerType::CodeGenCallApplyTargetRuntimeData, Field(FunctionCodeGenRuntimeData*)*);
         AuxPointerTypeEntry(AuxPointerType::CallSiteToCallApplyCallSiteArray, ProfileId*);
 #endif
+        AuxPointerTypeEntry(AuxPointerType::PrintOffsets, PrintOffsets*);
 #undef AuxPointerTypeEntry
 
         typedef AuxPtrs<FunctionProxy, AuxPointerType> AuxPtrsT;
@@ -1146,8 +1155,9 @@ namespace Js
 
         bool IsJitLoopBodyPhaseEnabled() const
         {
-            // Consider: Allow JitLoopBody in generator functions for loops that do not yield.
-            return !PHASE_OFF(JITLoopBodyPhase, this) && !PHASE_OFF(FullJitPhase, this) && !this->IsCoroutine();
+            return !PHASE_OFF(JITLoopBodyPhase, this) && !PHASE_OFF(FullJitPhase, this) &&
+                (!this->IsCoroutine() || !CONFIG_FLAG(JitES6Generators) || this->IsModule());
+                // Jitting loop bodies is currently disabled when testing the Jitting of whole generator functions
         }
 
         bool IsJitLoopBodyPhaseForced() const
@@ -1518,7 +1528,7 @@ namespace Js
         DEFINE_VTABLE_CTOR_NO_REGISTER(ParseableFunctionInfo, FunctionProxy);
         FunctionBody* Parse(ScriptFunction ** functionRef = nullptr, bool isByteCodeDeserialization = false);
 #ifdef ASMJS_PLAT
-        FunctionBody* ParseAsmJs(Parser * p, __out CompileScriptException * se, __out ParseNodeProg ** ptree);
+        FunctionBody* ParseAsmJs(Parser * p, _Out_ CompileScriptException * se, _Out_ ParseNodeProg ** ptree);
 #endif
 
         FunctionBodyFlags GetFlags() const { return flags; }
@@ -1772,6 +1782,8 @@ namespace Js
         void BuildDeferredStubs(ParseNodeFnc* pnodeFnc);
         DeferredFunctionStub *GetDeferredStubs() const { return this->GetAuxPtr<AuxPointerType::DeferredStubs>(); }
         void SetDeferredStubs(DeferredFunctionStub *stub) { this->SetAuxPtr<AuxPointerType::DeferredStubs>(stub); }
+        PrintOffsets* GetPrintOffsets() const { return this->GetAuxPtr<AuxPointerType::PrintOffsets>(); }
+        void SetPrintOffsets(PrintOffsets* offsets) { this->SetAuxPtr<AuxPointerType::PrintOffsets>(offsets); }
         void RegisterFuncToDiag(ScriptContext * scriptContext, char16 const * pszTitle);
         bool IsES6ModuleCode() const;
     private:
@@ -1842,7 +1854,6 @@ namespace Js
 
         FieldWithBarrier(uint) m_cbStartOffset;         // pUtf8Source is this many bytes from the start of the scriptContext's source buffer.
                                                         // This is generally the same as m_cchStartOffset unless the buffer has a BOM or other non-ascii characters
-        FieldWithBarrier(uint) m_cbStartPrintOffset;    // pUtf8Source is this many bytes from the start of the toString-relevant part of the scriptContext's source buffer.
 
         FieldWithBarrier(ULONG) m_lineNumber;
         FieldWithBarrier(ULONG) m_columnNumber;
@@ -3318,7 +3329,7 @@ namespace Js
             return sourceSpan->begin == 0 && sourceSpan->end == 0;
         }
 
-        static void GetShortNameFromUrl(__in LPCWSTR pchUrl, _Out_writes_z_(cchBuffer) LPWSTR pchShortName, __in size_t cchBuffer);
+        static void GetShortNameFromUrl(_In_ LPCWSTR pchUrl, _Out_writes_z_(cchBuffer) LPWSTR pchShortName, _In_ size_t cchBuffer);
 
         template<class Fn>
         void MapLoopHeaders(Fn fn) const
@@ -3408,10 +3419,9 @@ namespace Js
             return IsJitLoopBodyPhaseForced() && !this->GetHasTry();
         }
 
-        bool IsGeneratorAndJitIsDisabled()
-        {
-            return this->IsCoroutine() && !(CONFIG_ISENABLED(Js::JitES6GeneratorsFlag) && !this->GetHasTry());
-        }
+        bool SkipAutoProfileForCoroutine() const;
+
+        bool IsGeneratorAndJitIsDisabled() const;
 
         FunctionBodyFlags * GetAddressOfFlags() { return &this->flags; }
         Js::RegSlot GetRestParamRegSlot();
@@ -3763,7 +3773,7 @@ namespace Js
 
         // Helper methods
         void Insert(RegSlot reg, PropertyId propId);
-        void FetchItemAt(uint index, FunctionBody *pFuncBody, __out PropertyId *pPropId, __out RegSlot *pRegSlot);
+        void FetchItemAt(uint index, FunctionBody *pFuncBody, _Out_ PropertyId *pPropId, _Out_ RegSlot *pRegSlot);
         // Whether reg belongs to non-temp locals
         bool IsRegSlotFormal(RegSlot reg);
     };

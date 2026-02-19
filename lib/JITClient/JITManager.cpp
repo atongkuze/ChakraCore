@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -50,13 +51,28 @@ JITManager::GetJITManager()
     return &s_jitManager;
 }
 
+typedef struct _CHAKRA_RPC_SECURITY_QOS_V5 {
+    unsigned long Version;
+    unsigned long Capabilities;
+    unsigned long IdentityTracking;
+    unsigned long ImpersonationType;
+    unsigned long AdditionalSecurityInfoType;
+    union
+    {
+        RPC_HTTP_TRANSPORT_CREDENTIALS_W* HttpCredentials;
+    } u;
+    void* Sid;
+    unsigned int EffectiveOnly;
+    void* ServerSecurityDescriptor;
+} CHAKRA_RPC_SECURITY_QOS_V5;
+
 // This routine creates a binding with the server.
 HRESULT
 JITManager::CreateBinding(
-    __in HANDLE serverProcessHandle,
+    _In_ HANDLE serverProcessHandle,
     __in_opt void * serverSecurityDescriptor,
-    __in UUID * connectionUuid,
-    __out RPC_BINDING_HANDLE * bindingHandle)
+    _In_ UUID * connectionUuid,
+    _Out_ RPC_BINDING_HANDLE * bindingHandle)
 {
     Assert(IsOOPJITEnabled());
 
@@ -67,22 +83,13 @@ JITManager::CreateBinding(
     RPC_BINDING_HANDLE_TEMPLATE_V1 bindingTemplate;
     RPC_BINDING_HANDLE_SECURITY_V1_W bindingSecurity;
 
-#if (NTDDI_VERSION >= NTDDI_WIN8)
-    RPC_SECURITY_QOS_V5 securityQOS;
-    ZeroMemory(&securityQOS, sizeof(RPC_SECURITY_QOS_V5));
+    CHAKRA_RPC_SECURITY_QOS_V5 securityQOS;
+    ZeroMemory(&securityQOS, sizeof(CHAKRA_RPC_SECURITY_QOS_V5));
     securityQOS.Capabilities = RPC_C_QOS_CAPABILITIES_DEFAULT;
     securityQOS.IdentityTracking = RPC_C_QOS_IDENTITY_DYNAMIC;
     securityQOS.ImpersonationType = RPC_C_IMP_LEVEL_IDENTIFY;
-    securityQOS.Version = 5;
+    securityQOS.Version = AutoSystemInfo::Data.IsWin8OrLater() ? 5 : 4;
     securityQOS.ServerSecurityDescriptor = serverSecurityDescriptor;
-#else
-    RPC_SECURITY_QOS_V4 securityQOS;
-    ZeroMemory(&securityQOS, sizeof(RPC_SECURITY_QOS_V4));
-    securityQOS.Capabilities = RPC_C_QOS_CAPABILITIES_DEFAULT;
-    securityQOS.IdentityTracking = RPC_C_QOS_IDENTITY_DYNAMIC;
-    securityQOS.ImpersonationType = RPC_C_IMP_LEVEL_IDENTIFY;
-    securityQOS.Version = 4;
-#endif
 
     ZeroMemory(&bindingTemplate, sizeof(bindingTemplate));
     bindingTemplate.Version = 1;
@@ -227,7 +234,7 @@ JITManager::IsOOPJITEnabled() const
 #pragma prefast(disable:__WARNING_RELEASING_UNHELD_LOCK_MEDIUM_CONFIDENCE, "Lock is correctly acquired and released by RAII class AutoCriticalSection")
 #pragma prefast(disable:__WARNING_CALLER_FAILING_TO_HOLD, "Lock is correctly acquired and released by RAII class AutoCriticalSection")
 HRESULT
-JITManager::ConnectRpcServer(__in HANDLE jitProcessHandle, __in_opt void* serverSecurityDescriptor, __in UUID connectionUuid)
+JITManager::ConnectRpcServer(_In_ HANDLE jitProcessHandle, __in_opt void* serverSecurityDescriptor, _In_ UUID connectionUuid)
 {
     // We might be trying to connect from multiple threads simultaneously
     AutoCriticalSection cs(&m_cs);
@@ -296,45 +303,65 @@ HRESULT
 JITManager::ConnectProcess(RPC_BINDING_HANDLE rpcBindingHandle)
 {
     Assert(IsOOPJITEnabled());
-
-#ifdef USE_RPC_HANDLE_MARSHALLING
-    HANDLE processHandle;
-    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &processHandle, 0, false, DUPLICATE_SAME_ACCESS))
-    {
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-#endif
-
     HRESULT hr = E_FAIL;
-    RpcTryExcept
-    {
-        hr = ClientConnectProcess(
-            rpcBindingHandle,
-#ifdef USE_RPC_HANDLE_MARSHALLING
-            processHandle,
-#endif
-            (intptr_t)AutoSystemInfo::Data.GetChakraBaseAddr(),
-            (intptr_t)AutoSystemInfo::Data.GetCRTHandle());
-    }
-        RpcExcept(RpcExceptionFilter(RpcExceptionCode()))
-    {
-        hr = HRESULT_FROM_WIN32(RpcExceptionCode());
-    }
-    RpcEndExcept;
 
-#ifdef USE_RPC_HANDLE_MARSHALLING
-    CloseHandle(processHandle);
+    if (AutoSystemInfo::Data.IsWin8Point1OrLater())
+    {
+        HANDLE processHandle = nullptr;
+        // RPC handle marshalling is only available on 8.1+
+        if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &processHandle, 0, false, DUPLICATE_SAME_ACCESS))
+        {
+            return HRESULT_FROM_WIN32(GetLastError());
+        }
+
+        RpcTryExcept
+        {
+            hr = ClientConnectProcessWithProcessHandle(
+                rpcBindingHandle,
+                processHandle,
+                (intptr_t)AutoSystemInfo::Data.GetChakraBaseAddr(),
+                (intptr_t)AutoSystemInfo::Data.GetCRTHandle());
+        }
+            RpcExcept(RpcExceptionFilter(RpcExceptionCode()))
+        {
+            hr = HRESULT_FROM_WIN32(RpcExceptionCode());
+        }
+        RpcEndExcept;
+
+        if (processHandle)
+        {
+            CloseHandle(processHandle);
+        }
+    }
+    else
+    {
+#if (WINVER >= _WIN32_WINNT_WINBLUE)
+        AssertOrFailFast(UNREACHED);
+#else
+        RpcTryExcept
+        {
+            hr = ClientConnectProcess(
+                rpcBindingHandle,
+                (intptr_t)AutoSystemInfo::Data.GetChakraBaseAddr(),
+                (intptr_t)AutoSystemInfo::Data.GetCRTHandle());
+        }
+            RpcExcept(RpcExceptionFilter(RpcExceptionCode()))
+        {
+            hr = HRESULT_FROM_WIN32(RpcExceptionCode());
+        }
+        RpcEndExcept;
 #endif
+    }
 
     return hr;
 }
 
 HRESULT
 JITManager::InitializeThreadContext(
-    __in ThreadContextDataIDL * data,
-    __out PPTHREADCONTEXT_HANDLE threadContextInfoAddress,
-    __out intptr_t * prereservedRegionAddr,
-    __out intptr_t * jitThunkAddr)
+    _In_ ThreadContextDataIDL * data,
+    _Out_ PPTHREADCONTEXT_HANDLE threadContextInfoAddress,
+    _Out_ intptr_t * prereservedRegionAddr,
+    _Out_ intptr_t * jitThunkAddr)
 {
     Assert(IsOOPJITEnabled());
 
@@ -378,31 +405,9 @@ JITManager::CleanupThreadContext(
 }
 
 HRESULT
-JITManager::AddDOMFastPathHelper(
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
-    __in intptr_t funcInfoAddr,
-    __in int helper)
-{
-    Assert(IsOOPJITEnabled());
-
-    HRESULT hr = E_FAIL;
-    RpcTryExcept
-    {
-        hr = ClientAddDOMFastPathHelper(m_rpcBindingHandle, scriptContextInfoAddress, funcInfoAddr, helper);
-    }
-    RpcExcept(RpcExceptionFilter(RpcExceptionCode()))
-    {
-        hr = HRESULT_FROM_WIN32(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return hr;
-}
-
-HRESULT
 JITManager::SetIsPRNGSeeded(
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
-    __in boolean value)
+    _In_ PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
+    _In_ boolean value)
 {
     HRESULT hr = E_FAIL;
     RpcTryExcept
@@ -421,8 +426,8 @@ JITManager::SetIsPRNGSeeded(
 
 HRESULT
 JITManager::DecommitInterpreterBufferManager(
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
-    __in boolean asmJsThunk)
+    _In_ PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
+    _In_ boolean asmJsThunk)
 {
     Assert(IsOOPJITEnabled());
 
@@ -442,9 +447,9 @@ JITManager::DecommitInterpreterBufferManager(
 
 HRESULT
 JITManager::NewInterpreterThunkBlock(
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
-    __in InterpreterThunkInputIDL * thunkInput,
-    __out InterpreterThunkOutputIDL * thunkOutput)
+    _In_ PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
+    _In_ InterpreterThunkInputIDL * thunkInput,
+    _Out_ InterpreterThunkOutputIDL * thunkOutput)
 {
     Assert(IsOOPJITEnabled());
 
@@ -487,8 +492,8 @@ JITManager::AddModuleRecordInfo(
 
 HRESULT
 JITManager::SetWellKnownHostTypeId(
-    __in  PTHREADCONTEXT_HANDLE threadContextRoot,
-    __in  int typeId)
+    _In_  PTHREADCONTEXT_HANDLE threadContextRoot,
+    _In_  int typeId)
 {
 
     Assert(IsOOPJITEnabled());
@@ -510,7 +515,7 @@ JITManager::SetWellKnownHostTypeId(
 
 HRESULT
 JITManager::UpdatePropertyRecordMap(
-    __in PTHREADCONTEXT_HANDLE threadContextInfoAddress,
+    _In_ PTHREADCONTEXT_HANDLE threadContextInfoAddress,
     __in_opt BVSparseNodeIDL * updatedPropsBVHead)
 {
     Assert(IsOOPJITEnabled());
@@ -531,9 +536,9 @@ JITManager::UpdatePropertyRecordMap(
 
 HRESULT
 JITManager::InitializeScriptContext(
-    __in ScriptContextDataIDL * data,
-    __in PTHREADCONTEXT_HANDLE threadContextInfoAddress,
-    __out PPSCRIPTCONTEXT_HANDLE scriptContextInfoAddress)
+    _In_ ScriptContextDataIDL * data,
+    _In_ PTHREADCONTEXT_HANDLE threadContextInfoAddress,
+    _Out_ PPSCRIPTCONTEXT_HANDLE scriptContextInfoAddress)
 {
     Assert(IsOOPJITEnabled());
 
@@ -573,7 +578,7 @@ JITManager::CleanupScriptContext(
 
 HRESULT
 JITManager::CloseScriptContext(
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress)
+    _In_ PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress)
 {
     Assert(IsOOPJITEnabled());
 
@@ -593,8 +598,8 @@ JITManager::CloseScriptContext(
 
 HRESULT
 JITManager::FreeAllocation(
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
-    __in intptr_t codeAddress)
+    _In_ PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
+    _In_ intptr_t codeAddress)
 {
     Assert(IsOOPJITEnabled());
 
@@ -614,9 +619,9 @@ JITManager::FreeAllocation(
 
 HRESULT
 JITManager::IsNativeAddr(
-    __in PTHREADCONTEXT_HANDLE threadContextInfoAddress,
-    __in intptr_t address,
-    __out boolean * result)
+    _In_ PTHREADCONTEXT_HANDLE threadContextInfoAddress,
+    _In_ intptr_t address,
+    _Out_ boolean * result)
 {
     Assert(IsOOPJITEnabled());
 
@@ -636,9 +641,9 @@ JITManager::IsNativeAddr(
 
 HRESULT
 JITManager::RemoteCodeGenCall(
-    __in CodeGenWorkItemIDL *workItemData,
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
-    __out JITOutputIDL *jitData)
+    _In_ CodeGenWorkItemIDL *workItemData,
+    _In_ PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
+    _Out_ JITOutputIDL *jitData)
 {
     Assert(IsOOPJITEnabled());
 
@@ -659,10 +664,10 @@ JITManager::RemoteCodeGenCall(
 #if DBG
 HRESULT
 JITManager::IsInterpreterThunkAddr(
-    __in PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
-    __in intptr_t address,
-    __in boolean asmjsThunk,
-    __out boolean * result)
+    _In_ PSCRIPTCONTEXT_HANDLE scriptContextInfoAddress,
+    _In_ intptr_t address,
+    _In_ boolean asmjsThunk,
+    _Out_ boolean * result)
 {
     Assert(IsOOPJITEnabled());
 

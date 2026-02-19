@@ -54,6 +54,10 @@ set(CRLIB_SOURCE_CODES
     JavascriptArrayIndexEnumeratorBase.cpp
     JavascriptArrayIndexSnapshotEnumerator.cpp
     JavascriptArrayIterator.cpp
+    JavascriptAsyncFromSyncIterator.cpp
+    JavascriptAsyncFunction.cpp
+    JavascriptAsyncGenerator.cpp
+    JavascriptAsyncGeneratorFunction.cpp
     JavascriptBoolean.cpp
     JavascriptBooleanObject.cpp
     JavascriptBuiltInFunctions.cpp
@@ -91,7 +95,6 @@ set(CRLIB_SOURCE_CODES
     JavascriptSymbol.cpp
     JavascriptSymbolObject.cpp
     JavascriptTypedNumber.cpp
-    JavascriptVariantDate.cpp
     JavascriptWeakMap.cpp
     JavascriptWeakSet.cpp
     JsBuiltInEngineInterfaceExtensionObject.cpp
@@ -129,6 +132,12 @@ if(CC_TARGETS_AMD64)
 elseif(CC_TARGETS_ARM)
     set (CRLIB_SOURCE_CODES ${CRLIB_SOURCE_CODES}
         arm/arm_JavascriptFunctionA.S
+    )
+elseif(CC_TARGETS_ARM64)
+    set (CRLIB_SOURCE_CODES ${CRLIB_SOURCE_CODES}
+        arm64/arm64_CallFunction.S
+        arm64/arm64_DeferredDeserializeThunk.S
+        arm64/arm64_DeferredParsingThunk.S
     )
 endif()
 

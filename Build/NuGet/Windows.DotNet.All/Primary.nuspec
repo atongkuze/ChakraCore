@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/10/nuspec.xsd">
+  <metadata>
+    <id>$id$</id>
+    <version>$version$</version>
+    <description>$description$</description>
+    <releaseNotes>$releaseNotes$</releaseNotes>
+    <tags>$tags$</tags>
+    $CommonMetadataElements$
+    <dependencies>
+      <dependency id="Microsoft.ChakraCore.win-x86" version="$version$" />
+      <dependency id="Microsoft.ChakraCore.win-x64" version="$version$" />
+      <dependency id="Microsoft.ChakraCore.win-arm" version="$version$" />
+      <dependency id="Microsoft.ChakraCore.win-arm64" version="$version$" />
+    </dependencies>
+  </metadata>
+  <files>
+    $CommonFileElements$
+  </files>
+</package>

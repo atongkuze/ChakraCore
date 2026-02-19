@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 // ARM64-specific macro definitions
@@ -10,7 +11,12 @@
 #error Include arm64.h in builds of ARM64 targets only.
 #endif
 
+#if defined(__getReg) || defined(_WIN64)
 #define arm64_GET_CURRENT_FRAME() ((LPVOID)__getReg(29))
+#else
+extern "C" LPVOID arm64_GET_CURRENT_FRAME(void);
+#endif
+
 extern "C" VOID arm64_SAVE_REGISTERS(void*);
 
 /*
@@ -27,4 +33,9 @@ extern "C" VOID arm64_SAVE_REGISTERS(void*);
  */
 
 const DWORD ReturnAddrOffsetFromFramePtr = 1;
+#ifdef __linux__
+// Linux ARM64 appears to have some extra 8 byte padding.
+const DWORD ArgOffsetFromFramePtr = 4;
+#else
 const DWORD ArgOffsetFromFramePtr = 2;
+#endif

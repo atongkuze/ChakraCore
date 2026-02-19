@@ -1,35 +1,66 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.10)
 project (CHAKRACORE)
 
-# Keep CMake from caching static/shared library
-# option. Otherwise, CMake fails to update cached
-# references
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g")
 
-# todo: create a sub cmake file to take care of _SH uncaching...
-if(SHARED_LIBRARY_SH)
+# Disable expected CMake workflow
+option(CHAKRACORE_BUILD_SH "Use build.sh")
+
+set(CCACHE_PROGRAM_NAME_DEFAULT "ccache")
+
+if(NOT CHAKRACORE_BUILD_SH)
+    option(DISABLE_JIT "Disable JIT compilation" OFF)
+    option(INTL_ICU "Enable Intl" ON)
+    option(EMBED_ICU "Build ICU within ChakraCore build" OFF)
+    option(USE_CCACHE "Build using ccache" OFF)
+    set(CCACHE_PROGRAM_NAME ${CCACHE_PROGRAM_NAME_DEFAULT} CACHE
+        STRING "ccache executable")
+    set(ICU_INCLUDE_PATH "" CACHE STRING "libicu iclude path")
+    if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+      set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+    endif (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+else(NOT CHAKRACORE_BUILD_SH)
+
+    # Keep CMake from caching static/shared library
+    # option. Otherwise, CMake fails to update cached
+    # references
+
+    # todo: create a sub cmake file to take care of _SH uncaching...
+    if(SHARED_LIBRARY_SH)
     unset(SHARED_LIBRARY_SH CACHE)
     unset(STATIC_LIBRARY_SH CACHE)
-    unset(STATIC_LIBRARY CACHE)
-    set(SHARED_LIBRARY 1)
-endif()
+        unset(STATIC_LIBRARY CACHE)
+        set(SHARED_LIBRARY 1)
+    endif()
 
-if(STATIC_LIBRARY_SH)
-    unset(SHARED_LIBRARY_SH CACHE)
-    unset(STATIC_LIBRARY_SH CACHE)
-    unset(SHARED_LIBRARY CACHE)
-    set(STATIC_LIBRARY 1)
-endif()
+    if(STATIC_LIBRARY_SH)
+        unset(SHARED_LIBRARY_SH CACHE)
+        unset(STATIC_LIBRARY_SH CACHE)
+        unset(SHARED_LIBRARY CACHE)
+        set(STATIC_LIBRARY 1)
+    endif()
 
-if(LIBS_ONLY_BUILD_SH)
-    unset(LIBS_ONLY_BUILD_SH CACHE)
-    set(CC_LIBS_ONLY_BUILD 1)
-endif()
+    if(LIBS_ONLY_BUILD_SH)
+        unset(LIBS_ONLY_BUILD_SH CACHE)
+        set(CC_LIBS_ONLY_BUILD 1)
+    endif()
 
-if(CC_USES_SYSTEM_ARCH_SH)
+    if (CLANG_SANITIZE_SH)
+        set(CLANG_SANITIZE ${CLANG_SANITIZE_SH})
+        unset(CLANG_SANITIZE_SH CACHE)
+    endif()
+
+endif(NOT CHAKRACORE_BUILD_SH)
+
+if(CC_USES_SYSTEM_ARCH_SH OR NOT CHAKRACORE_BUILD_SH)
     if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         set(CC_TARGETS_AMD64_SH 1)
     elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7l")
         set(CC_TARGETS_ARM_SH 1)
+    elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set(CC_TARGETS_ARM64_SH 1)
+    elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(CC_TARGETS_ARM64_SH 1)
     endif()
     unset(CC_USES_SYSTEM_ARCH_SH CACHE)
 endif()
@@ -40,24 +71,37 @@ elseif(CC_TARGETS_ARM_SH)
     set(CC_TARGETS_ARM 1)
     add_definitions(-D_ARM_=1)
     set(CMAKE_SYSTEM_PROCESSOR "armv7l")
+elseif(CC_TARGETS_ARM64_SH)
+    add_definitions(-D_ARM64_=1)
+    add_definitions(-D__arm64__=1)
+    set(CC_TARGETS_ARM64 1)
+    set(CMAKE_SYSTEM_PROCESSOR "arm64")
 elseif(CC_TARGETS_X86_SH)
     set(CC_TARGETS_X86 1)
     set(CMAKE_SYSTEM_PROCESSOR "i386")
 else()
-    message(FATAL_ERROR "Couldn't detect target processor, try `--arch` argument with build.sh")
+    message(FATAL_ERROR "Unsupported target processor: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
 unset(CC_TARGETS_ARM_SH CACHE)
 unset(CC_TARGETS_X86_SH CACHE)
 unset(CC_TARGETS_AMD64_SH CACHE)
 
-if(CCACHE_PROGRAM_NAME_SH)
-  find_program(CCACHE_PROGRAM ${CCACHE_PROGRAM_NAME_SH})
-  if (CCACHE_PROGRAM)
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-  endif()
-  unset(CCACHE_PROGRAM_NAME_SH CACHE)
+if (CHAKRACORE_BUILD_SH)
+    if(CCACHE_PROGRAM_NAME_SH)
+        set(USE_CCACHE ON)
+        set(CCACHE_PROGRAM_NAME ${CCACHE_PROGRAM_NAME_SH})
+        unset(CCACHE_PROGRAM_NAME_SH CACHE)
+    else()
+        set(USE_CCACHE OFF)
+        set(CCACHE_PROGRAM_NAME ${CCACHE_PROGRAM_NAME_DEFAULT})
+    endif()
+endif()
+
+if(USE_CCACHE)
+  find_program(CCACHE_PROGRAM ${CCACHE_PROGRAM_NAME} REQUIRED)
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+  set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
 endif()
 
 if(ENABLE_VALGRIND_SH)
@@ -75,6 +119,7 @@ if(ICU_SETTINGS_RESET)
     unset(NO_ICU_SH CACHE)
     unset(LOCAL_ICU_SH CACHE)
     unset(SYSTEM_ICU_SH CACHE)
+    unset(EMBED_ICU_SH CACHE)
 endif()
 
 if(CC_TARGET_OS_ANDROID_SH)
@@ -125,15 +170,57 @@ if(SYSTEM_ICU_SH)
     unset(SYSTEM_ICU_SH CACHE)
 endif()
 
-if(INTL_ICU_SH)
-    unset(INTL_ICU_SH CACHE)
-    set(INTL_ICU 1)
-else()
-    unset(INTL_ICU_SH CACHE)
-    set(INTL_ICU 0)
+if(CHAKRACORE_BUILD_SH)
+    if(INTL_ICU_SH)
+        unset(INTL_ICU_SH CACHE)
+        set(INTL_ICU 1)
+    else()
+        unset(INTL_ICU_SH CACHE)
+        set(INTL_ICU 0)
+    endif()
+endif(CHAKRACORE_BUILD_SH)
+
+if(EMBED_ICU_SH)
+    set(EMBED_ICU 1)
+    unset(EMBED_ICU_SH CACHE)
 endif()
 
-if(ICU_INCLUDE_PATH)
+if(EMBED_ICU AND ICU_INCLUDE_PATH)
+    message(FATAL_ERROR "Embedded ICU and ICU include path cannot be set at the same time")
+endif()
+
+if(EMBED_ICU)
+    # Keep consistent with what ICU download script used to print
+    message("Note: ICU installation and use is subject to it's publisher's licensing terms")
+
+    set(ICU_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/deps/thirdparty/icu)
+    set(ICU_DOWNLOAD_DIR ${ICU_PREFIX}/download)
+    set(ICU_SOURCE_DIR ${ICU_PREFIX}/stage)
+    set(EMBEDDED_ICU_TARGET icu4c)
+    set(ICU_INCLUDE_PATH ${ICU_PREFIX}/include)
+    set(ICU_LIBRARY_PATH ${ICU_PREFIX}/lib)
+    add_definitions(-DHAS_REAL_ICU=1)
+    add_definitions(-DHAS_ICU)
+    add_definitions(-DINTL_ICU=1)
+    set(ICU_LIBRARIES
+        ${ICU_LIBRARY_PATH}/libicuuc.a
+        ${ICU_LIBRARY_PATH}/libicui18n.a
+        ${ICU_LIBRARY_PATH}/libicudata.a
+    )
+
+    include(ExternalProject)
+    ExternalProject_Add(${EMBEDDED_ICU_TARGET}
+        PREFIX ${ICU_PREFIX}
+        DOWNLOAD_DIR ${ICU_DOWNLOAD_DIR}
+        SOURCE_DIR ${ICU_SOURCE_DIR}
+        URL https://github.com/unicode-org/icu/releases/download/release-63-2/icu4c-63_2-src.tgz
+        URL_HASH SHA512=5fa9092efd8d6da6dfc8d498e4026167fda43423eaafc754d1789cf8fd4f6e76377878ebcaa32e14f314836136b764873511a93bfbcc5419b758841cc6df8f32
+        CONFIGURE_COMMAND ${ICU_SOURCE_DIR}/source/configure --prefix=${ICU_PREFIX} --with-data-packaging=static --enable-static --disable-shared --with-library-bits=64 --disable-icuio --disable-layout --disable-tests --disable-samples
+        BUILD_COMMAND make STATICCFLAGS="-fPIC" STATICCXXFLAGS="-fPIC" STATICCPPFLAGS="-DPIC"
+        INSTALL_COMMAND make install
+        BYPRODUCTS ${ICU_LIBRARIES}
+    )
+elseif(ICU_INCLUDE_PATH)
     add_definitions(-DHAS_REAL_ICU=1)
     add_definitions(-DHAS_ICU)
     set(ICU_LIBRARY_PATH "${ICU_INCLUDE_PATH}/../lib/")
@@ -214,8 +301,23 @@ elseif(CC_TARGETS_ARM)
         # reduce link time memory usage
         set(LINKER_REDUCED_MEMORY "-Xlinker --no-keep-memory")
     endif()
+elseif(CC_TARGETS_ARM64)
+    add_definitions(-D__aarch64__)
+    add_definitions(-DTARGET_64)
+    add_definitions(-D_M_ARM32_OR_ARM64)
+    if(CC_TARGET_OS_OSX)
+        add_compile_options(-arch arm64)
+    endif()
+    if (CC_TARGET_OS_LINUX)
+      # arm64 .S mostly use ; comments, not accepted by GNU assembler.
+      # In lieu of converting them all, just strip these comments during build.
+      set(CMAKE_ASM_COMPILE_OBJECT
+          "sed -e 's/\;.*//g' <SOURCE> > <OBJECT_DIR>/$$(basename <SOURCE>)"
+          "<CMAKE_ASM_COMPILER> <DEFINES> <INCLUDES> -I $$(dirname <SOURCE>) <FLAGS> -o <OBJECT> -c <OBJECT_DIR>/$$(basename <SOURCE>)"
+      )
+    endif()
 else()
-    message(FATAL_ERROR "Only AMD64, ARM and I386 are supported")
+    message(FATAL_ERROR "Only AMD64, ARM, ARM64 and I386 are supported")
 endif()
 
 if(CAN_BUILD_WABT)
@@ -253,7 +355,7 @@ elseif(CC_TARGET_OS_OSX)
       endif()
     endif()
 else()
-    message(FATAL_ERROR "This OS is not supported")
+    message(FATAL_ERROR "Unsupported OS: ${CMAKE_SYSTEM_NAME}")
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL AppleClang
@@ -282,7 +384,10 @@ if(CLR_CMAKE_PLATFORM_XPLAT)
     if(CC_TARGETS_AMD64)
         set(IS_64BIT_BUILD 1)
         add_definitions(-D_M_X64 -D_M_AMD64 -D_AMD64_)
-    endif(CC_TARGETS_AMD64)
+    elseif(CC_TARGETS_ARM64)
+        set(IS_64BIT_BUILD 1)
+        add_definitions(-D_M_ARM64 -D_ARM64_)
+    endif()
 
     add_definitions(
         -DUNICODE
@@ -290,24 +395,21 @@ if(CLR_CMAKE_PLATFORM_XPLAT)
         -D__STDC_WANT_LIB_EXT1__=1
         )
 
-    set(CMAKE_CXX_STANDARD 11)
-
-    # CC WARNING FLAGS
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
-        -Wno-implicit-function-declaration"
-    )
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED On)
 
     # todo: fix general visibility of the interface
     # do not set to `fvisibility=hidden` as it is going to
     # prevent the required interface is being exported
     # clang by default sets fvisibility=default
 
+    # Allow ch to export `OnChakraCoreLoadedEntry`
+    set(CMAKE_ENABLE_EXPORTS ON)
+
     # CXX WARNING FLAGS
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
         -Wno-ignored-attributes\
-        -Wno-deprecated-declarations\
         -Wno-parentheses-equality\
-        -Wno-missing-braces\
         -Wno-reorder\
         -Wno-microsoft\
         -Wno-unused-value\
@@ -315,7 +417,6 @@ if(CLR_CMAKE_PLATFORM_XPLAT)
         -Wno-invalid-offsetof\
         -Wno-undefined-inline\
         -Wno-inconsistent-missing-override\
-        -Wno-c++14-extensions\
         -Wno-macro-redefined\
         -Wno-pragmas\
         -Wno-invalid-token-paste\
@@ -328,7 +429,6 @@ if(CLR_CMAKE_PLATFORM_XPLAT)
         -Wno-null-conversion\
         -Wno-return-type\
         -Wno-switch\
-        -Wno-implicit-function-declaration\
         -Wno-int-to-pointer-cast\
         -Wno-tautological-constant-compare\
         -Wno-enum-compare-switch\
@@ -402,18 +502,11 @@ if(CMAKE_BUILD_TYPE STREQUAL Debug)
         -D_DEBUG=1 # for PAL
         -DDBG_DUMP=1
     )
-elseif(CMAKE_BUILD_TYPE STREQUAL Test)
+elseif(CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo)
     add_definitions(
         -DENABLE_DEBUG_CONFIG_OPTIONS=1
     )
-    add_compile_options(-g)
 endif(CMAKE_BUILD_TYPE STREQUAL Debug)
-
-if(NOT CMAKE_BUILD_TYPE STREQUAL Debug)
-    add_compile_options(-O3)
-else()
-    add_compile_options(-O0)
-endif(NOT CMAKE_BUILD_TYPE STREQUAL Debug)
 
 if(IS_64BIT_BUILD)
     add_definitions(
@@ -425,6 +518,9 @@ endif(IS_64BIT_BUILD)
 if(NO_JIT_SH)
     unset(NO_JIT_SH CACHE)      # don't cache
     unset(BuildJIT CACHE)       # also clear it just in case
+    add_definitions(-DDISABLE_JIT=1)
+elseif(DISABLE_JIT)
+    set(BuildJIT 0)
     add_definitions(-DDISABLE_JIT=1)
 else()
     set(BuildJIT 1)
@@ -446,6 +542,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     set(DYN_LIB_EXT "dylib")
 else()
     set(DYN_LIB_EXT "so")
+endif()
+
+if(CC_TARGETS_ARM64)
+    if(CC_TARGET_OS_LINUX)
+        message(WARNING "ARM64 linux build has not yet been tested, this build is unsupported.")
+    endif()
+    if(BuildJIT)
+        message(WARNING "ARM64 Jit not yet functional on platforms other than windows.")
+        message(WARNING "For use rather than development please build with Jit disabled --no-jit with ./build.sh or -DDISABLE_JIT=1 if using CMake directly")
+    endif()
 endif()
 
 ################# Write-barrier check/analyze ##################
@@ -499,12 +605,11 @@ endif()
 include_directories(SYSTEM /usr/local/include)
 include(pal/src/configure.cmake)
 
-# this should be after `detect feature` to not to affect feature detection
-# Clang -fsanitize.
-if (CLANG_SANITIZE_SH)
+# Clang sanitizer support, this should be after `detect feature` to not to
+# affect feature detection
+if (CLANG_SANITIZE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=${CLANG_SANITIZE_SH}")
     set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -fsanitize=${CLANG_SANITIZE_SH}")
-    unset(CLANG_SANITIZE_SH CACHE)      # don't cache
 endif()
 
 add_subdirectory (pal)
@@ -532,3 +637,5 @@ endif()
 add_subdirectory (lib)
 
 add_subdirectory (bin)
+
+add_subdirectory(test)

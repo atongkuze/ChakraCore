@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -35,6 +36,20 @@ var tests = [
             assert.isTrue(descriptor.configurable, "Promise.all.configurable === true");
             assert.areEqual('function', typeof descriptor.value, "typeof Promise.all === 'function'");
             assert.areEqual(1, Promise.all.length, "Promise.all.length === 1");
+
+            var descriptor = Object.getOwnPropertyDescriptor(Promise, 'allSettled');
+            assert.isTrue(descriptor.writable, "Promise.allSettled.writable === true");
+            assert.isFalse(descriptor.enumerable, "Promise.allSettled.enumerable === false");
+            assert.isTrue(descriptor.configurable, "Promise.allSettled.configurable === true");
+            assert.areEqual('function', typeof descriptor.value, "typeof Promise.allSettled === 'function'");
+            assert.areEqual(1, Promise.allSettled.length, "Promise.allSettled.length === 1");
+
+            var descriptor = Object.getOwnPropertyDescriptor(Promise, 'any');
+            assert.isTrue(descriptor.writable, "Promise.any.writable === true");
+            assert.isFalse(descriptor.enumerable, "Promise.any.enumerable === false");
+            assert.isTrue(descriptor.configurable, "Promise.any.configurable === true");
+            assert.areEqual('function', typeof descriptor.value, "typeof Promise.any === 'function'");
+            assert.areEqual(1, Promise.any.length, "Promise.any.length === 1");
 
             var descriptor = Object.getOwnPropertyDescriptor(Promise, 'race');
             assert.isTrue(descriptor.writable, "Promise.race.writable === true");
@@ -205,6 +220,29 @@ var tests = [
         }
     },
     {
+        name: "Promise.allSettled throwing behavior",
+        body: function () {
+            assert.throws(function() { Promise.allSettled.call(); }, TypeError, "Promise.allSettled throws when called with no this parameter", "Promise.allSettled: 'this' is not an Object");
+            assert.throws(function() { Promise.allSettled.call(undefined); }, TypeError, "Promise.allSettled throws when called when this parameter is undefined", "Promise.allSettled: 'this' is not an Object");
+            assert.throws(function() { Promise.allSettled.call(null); }, TypeError, "Promise.allSettled throws when called when this parameter is null", "Promise.allSettled: 'this' is not an Object");
+            assert.throws(function() { Promise.allSettled.call({}); }, TypeError, "Promise.allSettled throws when called when this parameter is non-callable", "Function expected");
+            assert.throws(function() { Promise.allSettled.call(Math.sin); }, TypeError, "Promise.allSettled throws when this parameter is a non-constructor", "Function expected");
+        }
+    },
+    {
+        name: "Promise.any throwing behavior",
+        body: function () {
+            assert.throws(function() { Promise.any.call(); }, TypeError, "Promise.any throws when called with no this parameter", "Function expected");
+            assert.throws(function() { Promise.any.call(undefined); }, TypeError, "Promise.any throws when called when this parameter is undefined", "Function expected");
+            assert.throws(function() { Promise.any.call(null); }, TypeError, "Promise.any throws when called when this parameter is null", "Function expected");
+            assert.throws(function() { Promise.any.call({}); }, TypeError, "Promise.any throws when called when this parameter is non-callable", "Function expected");
+            assert.throws(function() { Promise.any.call(Math.sin); }, TypeError, "Promise.any throws when this parameter is a non-constructor", "Function expected");
+            assert.throws(function() { Promise.any.call(5); }, TypeError, "Promise.any throws when this parameter is a integer", "Function expected");
+            assert.throws(function() { Promise.any.call(5.0); }, TypeError, "Promise.any throws when this parameter is a float", "Function expected");
+            assert.throws(function() { Promise.any.call("literal"); }, TypeError, "Promise.any throws when this parameter is a string literal", "Function expected");
+        }
+    },
+    {
         name: "Promise.prototype.then to access constructor through [@@species]",
         body: function () {
             var p = new Promise(function(resolve, reject) { });
@@ -272,6 +310,70 @@ var tests = [
             Promise.all([p]);
 
             assert.isTrue(isCalled, "The then function was actually called");
+        }
+    },
+    {
+        name: "Promise.all uses iterator next correctly",
+        body: function () {
+            let calledNext = 0;
+            const bar = {
+                [Symbol.iterator]() { return this; },
+                next () {
+                    this.next = function (){ throw new Error ("Next should have been cached so this should not be called") };
+                    return {value : Promise.resolve(0), done : (++calledNext > 2)}
+                }
+            }
+
+            Promise.all(bar);
+            assert.areEqual(3, calledNext, "Promise.all should use the iterator protocol, and next should be cached");
+        }
+    },
+    {
+        name: "Promise.allSettled uses iterator next correctly",
+        body: function () {
+            let calledNext = 0;
+            const bar = {
+                [Symbol.iterator]() { return this; },
+                next () {
+                    this.next = function (){ throw new Error ("Next should have been cached so this should not be called") };
+                    return {value : Promise.resolve(0), done : (++calledNext > 2)}
+                }
+            }
+
+            Promise.allSettled(bar);
+            assert.areEqual(3, calledNext, "Promise.allSettled should use the iterator protocol, and next should be cached");
+        }
+    },
+    {
+        name: "Promise.any uses iterator next correctly",
+        body: function () {
+            let calledNext = 0;
+            const bar = {
+                [Symbol.iterator]() { return this; },
+                next () {
+                    this.next = function (){ throw new Error ("Next should have been cached so this should not be called") };
+                    return {value : Promise.resolve(0), done : (++calledNext > 2)}
+                }
+            }
+
+            Promise.any(bar);
+            assert.areEqual(3, calledNext, "Promise.any should use the iterator protocol, and next should be cached");
+        }
+    },
+    {
+        name: "Promise.race uses iterator next correctly",
+        body: function () {
+            let calledNext = 0;
+            const bar = {
+                [Symbol.iterator]() { return this; },
+                next () {
+                    this.next = function (){ throw new Error ("Next should have been cached so this should not be called") };
+                    return {value : Promise.resolve(0), done : (++calledNext > 2)}
+                }
+            }
+
+            Promise.race(bar);
+            assert.areEqual(3, calledNext, "Promise.race should use the iterator protocol, and next should be cached");
         }
     },
     {
@@ -494,6 +596,7 @@ var tests = [
             assert.isTrue(finallyPromise instanceof MyPromise, "Subclass of Promise is returned from Promise.prototype.finally called with subclass of Promise object as this");
             assert.isTrue(MyPromise.race([]) instanceof MyPromise, "Subclass of Promise inherits Promise.race which uses 'this' argument as constructor for return object");
             assert.isTrue(MyPromise.all([]) instanceof MyPromise, "Subclass of Promise inherits Promise.all which uses 'this' argument as constructor for return object");
+            assert.isTrue(MyPromise.any([]) instanceof MyPromise, "Subclass of Promise inherits Promise.any which uses 'this' argument as constructor for return object");
             assert.isTrue(MyPromise.resolve(42) instanceof MyPromise, "Subclass of Promise inherits Promise.resolve which uses 'this' argument as constructor for return object");
             assert.isTrue(MyPromise.reject(42) instanceof MyPromise, "Subclass of Promise inherits Promise.reject which uses 'this' argument as constructor for return object");
         }

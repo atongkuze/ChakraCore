@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -150,6 +151,14 @@ namespace Js {
     };
 
     template <typename SizePolicy>
+    struct OpLayoutT_Reg2U
+    {
+        typename SizePolicy::RegSlotType     R0;
+        typename SizePolicy::RegSlotType     R1;
+        typename SizePolicy::UnsignedType    SlotIndex;
+    };
+
+    template <typename SizePolicy>
     struct OpLayoutT_Reg2B1
     {
         typename SizePolicy::RegSlotType     R0;
@@ -167,12 +176,31 @@ namespace Js {
     };
 
     template <typename SizePolicy>
+    struct OpLayoutT_Reg3U
+    {
+        typename SizePolicy::RegSlotType     R0;
+        typename SizePolicy::RegSlotType     R1;
+        typename SizePolicy::RegSlotType     R2;
+        typename SizePolicy::UnsignedType    SlotIndex;
+    };
+
+    template <typename SizePolicy>
     struct OpLayoutT_Reg4         // R0 <- R1 op R2 op R3
     {
         typename SizePolicy::RegSlotType     R0;
         typename SizePolicy::RegSlotType     R1;
         typename SizePolicy::RegSlotType     R2;
         typename SizePolicy::RegSlotType     R3;
+    };
+
+    template <typename SizePolicy>
+    struct OpLayoutT_Reg4U
+    {
+        typename SizePolicy::RegSlotType     R0;
+        typename SizePolicy::RegSlotType     R1;
+        typename SizePolicy::RegSlotType     R2;
+        typename SizePolicy::RegSlotType     R3;
+        typename SizePolicy::UnsignedType    SlotIndex;
     };
 
     template <typename SizePolicy>
@@ -183,6 +211,17 @@ namespace Js {
         typename SizePolicy::RegSlotType     R2;
         typename SizePolicy::RegSlotType     R3;
         typename SizePolicy::RegSlotType     R4;
+    };
+
+    template <typename SizePolicy>
+    struct OpLayoutT_Reg5U
+    {
+        typename SizePolicy::RegSlotType     R0;
+        typename SizePolicy::RegSlotType     R1;
+        typename SizePolicy::RegSlotType     R2;
+        typename SizePolicy::RegSlotType     R3;
+        typename SizePolicy::RegSlotType     R4;
+        typename SizePolicy::UnsignedType    SlotIndex;
     };
 
     template <typename SizePolicy>
@@ -319,13 +358,6 @@ namespace Js {
     struct OpLayoutT_CallIExtendedFlagsWithICIndex : public OpLayoutT_CallIExtendedWithICIndex<SizePolicy>
     {
         CallFlags callFlags;
-    };
-
-    template <typename SizePolicy>
-    struct OpLayoutT_Class        // class _ extends Extends { Constructor(...) { ... } }
-    {
-        typename SizePolicy::RegSlotType     Constructor;
-        typename SizePolicy::RegSlotSType    Extends;
     };
 
     template <typename SizePolicy>

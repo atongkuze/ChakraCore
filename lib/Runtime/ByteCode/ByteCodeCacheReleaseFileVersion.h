@@ -1,9 +1,12 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 // NOTE: If there is a merge conflict the correct fix is to make a new GUID.
+// This file was generated with tools/regenByteCode.py
 
-// {3EDF890E-55F9-4646-A9AC-53127700D405}
+// {d31c196c-a985-4c41-a9b3-5a895b7dc567}
 const GUID byteCodeCacheReleaseFileVersion =
-{ 0x3EDF890E, 0x55F9, 0x4646,{ 0xA9, 0xAC, 0x53, 0x12, 0x77, 0x00, 0xD4, 0x05 } };
+{ 0xd31c196c, 0xa985, 0x4c41, {0xa9, 0xb3, 0x5a, 0x89, 0x5b, 0x7d, 0xc5, 0x67 } };
+

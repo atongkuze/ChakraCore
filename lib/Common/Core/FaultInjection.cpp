@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "CommonCorePch.h"
@@ -117,7 +118,6 @@ namespace Js
         _In_opt_ const CONTEXT* pCtx = nullptr)
     {
         CONTEXT                         Context;
-        KNONVOLATILE_CONTEXT_POINTERS   NvContext;
         UNWIND_HISTORY_TABLE            UnwindHistoryTable;
         PRUNTIME_FUNCTION               RuntimeFunction;
         PVOID                           HandlerData;
@@ -141,7 +141,7 @@ namespace Js
         while (true)
         {
             RuntimeFunction = RtlLookupFunctionEntry(Context.Rip, &ImageBase, &UnwindHistoryTable);
-            RtlZeroMemory(&NvContext, sizeof(KNONVOLATILE_CONTEXT_POINTERS));
+
             if (!RuntimeFunction)
             {
                 Context.Rip = (ULONG64)(*(PULONG64)Context.Rsp);
@@ -150,7 +150,7 @@ namespace Js
             else
             {
                 RtlVirtualUnwind(UNW_FLAG_NHANDLER, ImageBase, Context.Rip, RuntimeFunction,
-                    &Context, &HandlerData, &EstablisherFrame, NULL);
+                    &Context, &HandlerData, &EstablisherFrame, NULL /* ContextPointers */);
             }
 
             if (!Context.Rip)
@@ -1244,7 +1244,7 @@ namespace Js
         {
             HANDLE hFile = (HANDLE)_get_osfhandle(_fileno(fp));
             OVERLAPPED overlapped;
-            memset(&overlapped, 0, sizeof(overlapped));
+            memset((void*)&overlapped, 0, sizeof(overlapped));
             const int lockSize = 1024 * 64;
             if (!LockFileEx(hFile, LOCKFILE_EXCLUSIVE_LOCK, 0, lockSize, 0, &overlapped))
             {

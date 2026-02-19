@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -33,7 +34,7 @@ var all = [ undefined, null,
             new Object(), new Object(),
             [1,2,3], [1,2,3],
             new Array(3), Array(3), new Array(1, 2, 3), Array(1),
-            foo, d, 1281011400000 , d.getVarDate()
+            foo, d, 1281011400000, d
           ];
 
 var biops = [    

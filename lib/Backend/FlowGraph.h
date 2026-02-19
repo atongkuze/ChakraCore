@@ -201,10 +201,7 @@ private:
     void        BuildLoop(BasicBlock *headBlock, BasicBlock *tailBlock, Loop *parentLoop = nullptr);
     void        WalkLoopBlocks(BasicBlock *block, Loop *loop, JitArenaAllocator *tempAlloc);
     void        AddBlockToLoop(BasicBlock *block, Loop *loop);
-    bool        IsEHTransitionInstr(IR::Instr *instr);
-    BasicBlock * GetPredecessorForRegionPropagation(BasicBlock *block);
     void        UpdateRegionForBlock(BasicBlock *block);
-    void        UpdateRegionForBlockFromEHPred(BasicBlock *block, bool reassign = false);
     Region *    PropagateRegionFromPred(BasicBlock *block, BasicBlock *predBlock, Region *predRegion, IR::Instr * &tryInstr);
     IR::Instr * PeepCm(IR::Instr *instr);
     IR::Instr * PeepTypedCm(IR::Instr *instr);
@@ -349,14 +346,19 @@ public:
     bool IsLandingPad();
     BailOutInfo * CreateLoopTopBailOutInfo(GlobOpt * globOpt);
 
+    BVSparse<JitArenaAllocator> *EnsureTypeIDsWithFinalType(JitArenaAllocator *alloc);
+
     // GlobOpt Stuff
 public:
     bool         PathDepBranchFolding(GlobOpt* globOptState);
     void         MergePredBlocksValueMaps(GlobOpt* globOptState);
 private:
     void         CleanUpValueMaps();
+    Value*       UpdateValueForCopyTypeInstr(GlobOpt* globOpt, GlobHashTable* localSymToValueMap, IR::Instr* instr);
+    static bool  IsLegalForPathDepBranches(IR::Instr* instr);
     void         CheckLegalityAndFoldPathDepBranches(GlobOpt* globOpt);
     Value *      FindValueInLocalThenGlobalValueTableAndUpdate(GlobOpt *globOpt, GlobHashTable * localSymToValueMap, IR::Instr *instr, Sym *dstSym, Sym *srcSym);
+    Value* GetValueForConditionalBranch(IR::BranchInstr* branch, IR::Opnd* opnd, GlobOpt* globOpt, GlobHashTable* localSymToValueMap);
     IR::LabelInstr*         CanProveConditionalBranch(IR::BranchInstr *branch, GlobOpt* globOpt, GlobHashTable * localSymToValueMap);
 
 #if DBG_DUMP
@@ -374,6 +376,7 @@ public:
     uint8                isDead:1;
     uint8                isLoopHeader:1;
     uint8                hasCall:1;
+    uint8                hasYield:1;
     uint8                isVisited:1;
     uint8                isAirLockCompensationBlock:1;
     uint8                beginsBailOnNoProfile:1;
@@ -401,6 +404,7 @@ public:
     HashTable<AddPropertyCacheBucket> *     stackSymToFinalType;
     HashTable<ObjTypeGuardBucket> *         stackSymToGuardedProperties; // Dead store pass only
     HashTable<ObjWriteGuardBucket> *        stackSymToWriteGuardsMap; // Backward pass only
+    BVSparse<JitArenaAllocator> *           typeIDsWithFinalType;
     BVSparse<JitArenaAllocator> *           noImplicitCallUses;
     BVSparse<JitArenaAllocator> *           noImplicitCallNoMissingValuesUses;
     BVSparse<JitArenaAllocator> *           noImplicitCallNativeArrayUses;
@@ -432,6 +436,7 @@ private:
         isDead(false),
         isLoopHeader(false),
         hasCall(false),
+        hasYield(false),
         liveFixedFields(nullptr),
         upwardExposedUses(nullptr),
         upwardExposedFields(nullptr),
@@ -445,6 +450,7 @@ private:
         stackSymToFinalType(nullptr),
         stackSymToGuardedProperties(nullptr),
         stackSymToWriteGuardsMap(nullptr),
+        typeIDsWithFinalType(nullptr),
         noImplicitCallUses(nullptr),
         noImplicitCallNoMissingValuesUses(nullptr),
         noImplicitCallNativeArrayUses(nullptr),
@@ -590,6 +596,7 @@ public:
     // cleanup in PreOptPeep in the pre-pass of a loop. For aggressively transferring
     // values in prepass, we need to know if a source sym was ever assigned to in a loop.
     BVSparse<JitArenaAllocator> *symsAssignedToInLoop;
+    BVSparse<JitArenaAllocator> *preservesNumberValue;
 
     BailOutInfo *       bailOutInfo;
     IR::BailOutInstr *  toPrimitiveSideEffectCheck;
@@ -616,6 +623,7 @@ public:
     bool                hasDeadStoreCollectionPass : 1;
     bool                hasDeadStorePrepass : 1;
     bool                hasCall : 1;
+    bool                hasYield : 1;
     bool                hasHoistedFields : 1;
     bool                needImplicitCallBailoutChecksForJsArrayCheckHoist : 1;
     bool                allFieldsKilled : 1;
@@ -735,6 +743,7 @@ public:
         symsAssignedToInLoop(nullptr),
         needImplicitCallBailoutChecksForJsArrayCheckHoist(false),
         inductionVariables(nullptr),
+        preservesNumberValue(nullptr),
         dominatingLoopCountableBlock(nullptr),
         loopCount(nullptr),
         loopCountBasedBoundBaseSyms(nullptr),
@@ -764,10 +773,12 @@ public:
     bool                CanHoistInvariants() const;
     bool                CanDoFieldCopyProp();
     void                SetHasCall();
+    void                SetHasYield();
     IR::LabelInstr *    GetLoopTopInstr() const;
     void                SetLoopTopInstr(IR::LabelInstr * loopTop);
     Func *              GetFunc() const { return GetLoopTopInstr()->m_func; }
     bool                IsSymAssignedToInSelfOrParents(StackSym * const sym) const;
+    bool                IsSymAssignedToInSelfOrParents(SymID id) const;
     BasicBlock *        GetAnyTailBlock() const;
 #if DBG_DUMP
     bool                GetHasCall() const { return hasCall; }

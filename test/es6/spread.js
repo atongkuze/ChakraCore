@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) 2021 ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -30,6 +31,14 @@ var tests = [
             assert.areEqual(joined[i], joined[0], "joined[" + i + "] +  ===  + joined[" + 0 + "]");
           }
       }
+  },
+  {
+    name: "Bug Issue 5678, Spread should not set property descriptors on missing elements of target array",
+    body: function () {
+      var a = [1,,...[3]];
+      assert.isFalse(Reflect.has(a, 1));
+      assert.isUndefined(Object.getOwnPropertyDescriptor(a, 1));
+    }
   },
   {
     name: "Testing call with spread args (all should be the same)",
@@ -259,13 +268,15 @@ var tests = [
         Object.defineProperty(Array.prototype, 1, {
             get: function() {
                 x.length = 0;
-            }
+            },
+            configurable: true
         });
 
         var f = function(){
             assert.areEqual(arguments.length, 2, "Changing length of x during spreading should truncate the spread.");
         }
         f(...x);
+        delete Array.prototype[1];
     }
   },
   {

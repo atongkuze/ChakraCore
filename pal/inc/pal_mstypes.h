@@ -1,15 +1,10 @@
-//
-// Copyright (c) Microsoft. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//
-
-/*++
-
-
-
-
-
---*/
+//-------------------------------------------------------------------------------------------------------
+// ChakraCore/Pal
+// Contains portions (c) copyright Microsoft, portions copyright (c) the .NET Foundation and Contributors
+// and edits (c) copyright the ChakraCore Contributors.
+// See THIRD-PARTY-NOTICES.txt in the project root for .NET Foundation license
+// Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
+//-------------------------------------------------------------------------------------------------------
 
 ////////////////////////////////////////////////////////////////////////
 // Extensions to the usual posix header files
@@ -168,7 +163,10 @@ extern "C" {
 
 #define __int32     int
 #define __int16     short int
-#define __int8      char        // assumes char is signed
+// NB: signedness depends on platform and ABI, usually signed,
+// BUT: Linux arm64 ABI uses unsigned char, for example.
+// It should be always used with an explicit signed/unsigned prefix.
+#define __int8      char
 
 #endif // _MSC_VER
 
@@ -183,7 +181,7 @@ typedef __int32 int32_t;
 typedef unsigned __int32 uint32_t;
 typedef __int16 int16_t;
 typedef unsigned __int16 uint16_t;
-typedef __int8 int8_t;
+typedef signed __int8 int8_t;
 #define __int8_t_defined
 
 typedef unsigned __int8 uint8_t;

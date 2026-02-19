@@ -1,7 +1,10 @@
-//
-// Copyright (c) Microsoft. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//
+//-------------------------------------------------------------------------------------------------------
+// ChakraCore/Pal
+// Contains portions (c) copyright Microsoft, portions copyright (c) the .NET Foundation and Contributors
+// and edits (c) copyright the ChakraCore Contributors.
+// See THIRD-PARTY-NOTICES.txt in the project root for .NET Foundation license
+// Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
+//-------------------------------------------------------------------------------------------------------
 
 /*++
 
@@ -26,7 +29,7 @@ Abstract:
 #include "pal/threadsusp.hpp"
 
 #include "pal/palinternal.h"
-#if !HAVE_MACH_EXCEPTIONS
+
 #include "pal/dbgmsg.h"
 #include "pal/init.h"
 #include "pal/process.h"
@@ -45,7 +48,11 @@ using namespace CorUnix;
 
 SET_DEFAULT_DEBUG_CHANNEL(EXCEPT);
 
+#ifdef SIGRTMIN
 #define INJECT_ACTIVATION_SIGNAL SIGRTMIN
+#else
+#define INJECT_ACTIVATION_SIGNAL SIGUSR1
+#endif
 
 /* local type definitions *****************************************************/
 
@@ -56,6 +63,8 @@ SET_DEFAULT_DEBUG_CHANNEL(EXCEPT);
 typedef void *siginfo_t;
 #endif  /* !HAVE_SIGINFO_T */
 typedef void (*SIGFUNC)(int, siginfo_t *, void *);
+
+#if !HAVE_MACH_EXCEPTIONS
 
 /* internal function declarations *********************************************/
 
@@ -70,7 +79,7 @@ static void common_signal_handler(PEXCEPTION_POINTERS pointers, int code,
 
 static void inject_activation_handler(int code, siginfo_t *siginfo, void *context);
 
-static void handle_signal(int signal_id, SIGFUNC sigfunc, struct sigaction *previousAction);
+static void handle_signal(int signal_id, SIGFUNC sigfunc, struct sigaction *previousAction, int additionalFlags = 0);
 static void restore_signal(int signal_id, struct sigaction *previousAction);
 
 /* internal data declarations *********************************************/
@@ -117,7 +126,7 @@ BOOL SEHInitializeSignals()
     handle_signal(SIGTRAP, sigtrap_handler, &g_previous_sigtrap);
     handle_signal(SIGFPE, sigfpe_handler, &g_previous_sigfpe);
     handle_signal(SIGBUS, sigbus_handler, &g_previous_sigbus);
-    handle_signal(SIGSEGV, sigsegv_handler, &g_previous_sigsegv);
+    handle_signal(SIGSEGV, sigsegv_handler, &g_previous_sigsegv, SA_ONSTACK);
 
     handle_signal(INJECT_ACTIVATION_SIGNAL, inject_activation_handler, NULL);
 
@@ -447,32 +456,6 @@ static void inject_activation_handler(int code, siginfo_t *siginfo, void *contex
 
 /*++
 Function :
-    InjectActivationInternal
-
-    Interrupt the specified thread and have it call the activationFunction passed in
-
-Parameters :
-    pThread            - target PAL thread
-    activationFunction - function to call
-
-(no return value)
---*/
-PAL_ERROR InjectActivationInternal(CorUnix::CPalThread* pThread)
-{
-    int status = pthread_kill(pThread->GetPThreadSelf(), INJECT_ACTIVATION_SIGNAL);
-    if (status != 0)
-    {
-        // Failure to send the signal is fatal. There are only two cases when sending
-        // the signal can fail. First, if the signal ID is invalid and second,
-        // if the thread doesn't exist anymore.
-        abort();
-    }
-
-    return NO_ERROR;
-}
-
-/*++
-Function :
     SEHSetSafeState
 
     specify whether the current thread is in a state where exception handling
@@ -576,11 +559,11 @@ Parameters :
 
 note : if sigfunc is NULL, the default signal handler is restored
 --*/
-void handle_signal(int signal_id, SIGFUNC sigfunc, struct sigaction *previousAction)
+void handle_signal(int signal_id, SIGFUNC sigfunc, struct sigaction *previousAction, int additionalFlags)
 {
     struct sigaction newAction;
 
-    newAction.sa_flags = SA_RESTART;
+    newAction.sa_flags = SA_RESTART | additionalFlags;
 #if HAVE_SIGINFO_T
     newAction.sa_handler = NULL;
     newAction.sa_sigaction = sigfunc;

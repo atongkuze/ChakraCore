@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -250,12 +251,15 @@ namespace TTD
             SnapPromiseResolveOrRejectFunctionObject,
             SnapPromiseReactionTaskFunctionObject,
             SnapPromiseAllResolveElementFunctionObject,
+            SnapPromiseAllSettledResolveOrRejectElementFunctionObject,
+            SnapPromiseAnyRejectElementFunctionObject,
             SnapGeneratorFunction,
             SnapGeneratorVirtualScriptFunction,
             SnapAsyncFunction,
             SnapGenerator,
-            JavascriptPromiseAsyncSpawnExecutorFunction,
-            JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction,
+            SnapAwaitObject,
+            JavascriptAsyncSpawnExecutorFunction,
+            JavascriptAsyncSpawnStepFunction,
 
             //objects that should always be well known but which may have other info we want to restore
             SnapWellKnownObject,
@@ -922,7 +926,7 @@ namespace TTD
                         this->m_currPos = this->m_headBlock->BlockData;
                         this->m_endPos = this->m_headBlock->BlockData + TTD_SLAB_BLOCK_USABLE_SIZE(this->m_slabBlockSize);
 
-                        memset(this->m_currPos, 0, TTD_SLAB_BLOCK_USABLE_SIZE(this->m_slabBlockSize));
+                        memset((void*)this->m_currPos, 0, TTD_SLAB_BLOCK_USABLE_SIZE(this->m_slabBlockSize));
 
                         this->m_headBlock->RefCounter = 0;
                     }

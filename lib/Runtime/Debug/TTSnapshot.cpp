@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeDebugPch.h"
@@ -294,7 +295,7 @@ namespace TTD
         GCTime(gcTime), MarkTime(0.0), ExtractTime(0.0)
     {
         this->m_snapObjectVTableArray = this->m_slabAllocator.SlabAllocateArray<NSSnapObjects::SnapObjectVTable>((uint32)NSSnapObjects::SnapObjectType::Limit);
-        memset(this->m_snapObjectVTableArray, 0, sizeof(NSSnapObjects::SnapObjectVTable) * (uint32)NSSnapObjects::SnapObjectType::Limit);
+        memset((void*)this->m_snapObjectVTableArray, 0, sizeof(NSSnapObjects::SnapObjectVTable) * (uint32)NSSnapObjects::SnapObjectType::Limit);
 
         this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::Invalid] = { nullptr, nullptr, nullptr, nullptr };
         this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::SnapUnhandledObject] = { nullptr, nullptr, nullptr, nullptr };
@@ -303,6 +304,7 @@ namespace TTD
         //For the objects that have inflators
 
         this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::SnapDynamicObject] = { &NSSnapObjects::DoObjectInflation_SnapDynamicObject, nullptr, nullptr, nullptr };
+        this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::SnapAwaitObject] = { &NSSnapObjects::DoObjectInflation_SnapAwaitObject, nullptr, nullptr, nullptr };
         this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::SnapExternalObject] = { &NSSnapObjects::DoObjectInflation_SnapExternalObject, nullptr, nullptr, nullptr };
 
         this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::SnapScriptFunctionObject] = { &NSSnapObjects::DoObjectInflation_SnapScriptFunctionInfo, &NSSnapObjects::DoAddtlValueInstantiation_SnapScriptFunctionInfo, &NSSnapObjects::EmitAddtlInfo_SnapScriptFunctionInfo, &NSSnapObjects::ParseAddtlInfo_SnapScriptFunctionInfo };
@@ -363,17 +365,11 @@ namespace TTD
             &NSSnapObjects::DoAddtlValueInstantiation_SnapGeneratorInfo,
             &NSSnapObjects::EmitAddtlInfo_SnapGeneratorInfo,
             &NSSnapObjects::ParseAddtlInfo_SnapGeneratorInfo };
-        this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::JavascriptPromiseAsyncSpawnExecutorFunction] = {
-            &NSSnapObjects::DoObjectInflation_SnapJavascriptPromiseAsyncSpawnExecutorFunction,
-            &NSSnapObjects::DoAddtlValueInstantiation_SnapJavascriptPromiseAsyncSpawnExecutorFunction,
-            &NSSnapObjects::EmitAddtlInfo_SnapJavascriptPromiseAsyncSpawnExecutorFunction,
-            &NSSnapObjects::ParseAddtlInfo_SnapJavascriptPromiseAsyncSpawnExecutorFunction
-        };
-        this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction] = {
-            &NSSnapObjects::DoObjectInflation_SnapJavascriptPromiseAsyncSpawnStepArgumentExecutorFunctionInfo,
-            &NSSnapObjects::DoAddtlValueInstantiation_SnapJavascriptPromiseAsyncSpawnStepArgumentExecutorFunctionInfo,
-            &NSSnapObjects::EmitAddtlInfo_SnapJavascriptPromiseAsyncSpawnStepArgumentExecutorFunctionInfo,
-            &NSSnapObjects::ParseAddtlInfo_SnapJavascriptPromiseAsyncSpawnStepArgumentExecutorFunctionInfo
+        this->m_snapObjectVTableArray[(uint32)NSSnapObjects::SnapObjectType::JavascriptAsyncSpawnStepFunction] = {
+            &NSSnapObjects::DoObjectInflation_SnapJavascriptAsyncSpawnStepFunctionInfo,
+            &NSSnapObjects::DoAddtlValueInstantiation_SnapJavascriptAsyncSpawnStepFunctionInfo,
+            &NSSnapObjects::EmitAddtlInfo_SnapJavascriptAsyncSpawnStepFunctionInfo,
+            &NSSnapObjects::ParseAddtlInfo_SnapJavascriptAsyncSpawnStepFunctionInfo
         };
 
 

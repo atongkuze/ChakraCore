@@ -1,7 +1,10 @@
-//
-// Copyright (c) Microsoft. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//
+//-------------------------------------------------------------------------------------------------------
+// ChakraCore/Pal
+// Contains portions (c) copyright Microsoft, portions copyright (c) the .NET Foundation and Contributors
+// and edits (c) copyright the ChakraCore Contributors.
+// See THIRD-PARTY-NOTICES.txt in the project root for .NET Foundation license
+// Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
+//-------------------------------------------------------------------------------------------------------
 
 /*++
 
@@ -27,9 +30,11 @@ Revision History:
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
-#if HAVE_SYSCTL
+#if HAVE_SYSCONF || defined(__ANDROID__)
+// <unistd.h> already included
+#elif HAVE_SYSCTL
 #include <sys/sysctl.h>
-#elif !HAVE_SYSCONF && !defined(__ANDROID__)
+#else
 #error Either sysctl or sysconf is required for GetSystemInfo.
 #endif
 
@@ -90,7 +95,9 @@ SET_DEFAULT_DEBUG_CHANNEL(MISC);
 #ifdef __LINUX__
 // There is no reasonable way to get the max. value for the VAS on
 // Linux, so just hardcode the ABI values for 64 and 32bits.
-#ifdef LINUX64
+#if defined(_M_ARM64)
+#define MAX_PROCESS_VA_SPACE_LINUX (1ull << 48)
+#elif defined(LINUX64)
 // The hardware limit for x86-64 CPUs is 256TB, but the practical
 // limit at the moment for Linux kernels is 128TB.  See for example:
 // https://access.redhat.com/articles/rhel-limits
@@ -186,7 +193,9 @@ GetCurrentThreadStackLimits(&lowl, &highl);
 #elif defined(USERLIMIT)
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) USERLIMIT;
 #elif defined(_WIN64)
-#if defined(USRSTACK64)
+#if defined(_M_ARM64)
+    lpSystemInfo->lpMaximumApplicationAddress = (PVOID) (1ull << 47);
+#elif defined(USRSTACK64)
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) PAL_MAX(highl, USRSTACK64);
 #else // !USRSTACK64
 #error How come USRSTACK64 is not defined for 64bit?

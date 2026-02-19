@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -17,9 +18,9 @@ public:
     JITTimeFunctionBody(FunctionBodyDataIDL * bodyData);
 
     static void InitializeJITFunctionData(
-        __in ArenaAllocator * arena,
-        __in Js::FunctionBody * functionBody,
-        __out FunctionBodyDataIDL * jitBody);
+        _In_ ArenaAllocator * arena,
+        _In_ Js::FunctionBody * functionBody,
+        _Out_ FunctionBodyDataIDL * jitBody);
 
     intptr_t GetAddr() const;
 
@@ -37,6 +38,7 @@ public:
     uint GetInlineCacheCount() const;
     uint GetRecursiveCallSiteCount() const;
     uint GetForInLoopDepth() const;
+    Js::RegSlot GetYieldReg() const;
     Js::RegSlot GetLocalFrameDisplayReg() const;
     Js::RegSlot GetLocalClosureReg() const;
     Js::RegSlot GetEnvReg() const;
@@ -102,6 +104,7 @@ public:
     void EnsureConsistentConstCount() const;
     bool HasComputedName() const;
     bool HasHomeObj() const;
+    bool RegIsConstant(Js::RegSlot reg) const;
 
     const byte * GetByteCodeBuffer() const;
     StatementMapIDL * GetFullStatementMap() const;

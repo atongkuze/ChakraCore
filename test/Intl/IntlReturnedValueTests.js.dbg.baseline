@@ -21,14 +21,14 @@
     "this": "Object {...}",
     "functionCallsReturn": {
       "[get format returned]": "function <large string>",
-      "[Intl.DateTimeFormat.prototype.format returned]": "string ‎2‎/‎1‎/‎2000"
+      "[Intl.DateTimeFormat.prototype.format returned]": "string 2/1/2000"
     },
     "locals": {
       "Symbol.toStringTag": "string global",
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "undefined undefined",
       "numberFormat1": "undefined undefined",
       "formattedNumber1": "undefined undefined",
@@ -46,7 +46,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "undefined undefined",
       "formattedNumber1": "undefined undefined",
@@ -64,7 +64,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "undefined undefined",
       "formattedNumber1": "undefined undefined",
@@ -75,14 +75,14 @@
   {
     "this": "Object {...}",
     "functionCallsReturn": {
-      "[resolvedOptions returned]": "Object {...}"
+      "[Intl.DateTimeFormat.prototype.resolvedOptions returned]": "Object {...}"
     },
     "locals": {
       "Symbol.toStringTag": "string global",
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "undefined undefined",
       "formattedNumber1": "undefined undefined",
@@ -100,7 +100,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "undefined undefined",
@@ -119,7 +119,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "string 123.456",
@@ -137,7 +137,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "string 123.456",
@@ -148,14 +148,14 @@
   {
     "this": "Object {...}",
     "functionCallsReturn": {
-      "[resolvedOptions returned]": "Object {...}"
+      "[Intl.NumberFormat.prototype.resolvedOptions returned]": "Object {...}"
     },
     "locals": {
       "Symbol.toStringTag": "string global",
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "string 123.456",
@@ -173,7 +173,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "string 123.456",
@@ -192,7 +192,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "string 123.456",
@@ -210,7 +210,7 @@
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "string 123.456",
@@ -221,14 +221,14 @@
   {
     "this": "Object {...}",
     "functionCallsReturn": {
-      "[resolvedOptions returned]": "Object {...}"
+      "[Intl.Collator.prototype.resolvedOptions returned]": "Object {...}"
     },
     "locals": {
       "Symbol.toStringTag": "string global",
       "options": "Object {...}",
       "dateFormat1": "Object {...}",
       "date1": "Date <large string>",
-      "date2": "string ‎2‎/‎1‎/‎2000",
+      "date2": "string 2/1/2000",
       "stringDate1": "string <large string>",
       "numberFormat1": "Object {...}",
       "formattedNumber1": "string 123.456",

@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -328,8 +329,8 @@ namespace Js {
         virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, EnumeratorCache * enumeratorCache = nullptr);
         virtual BOOL ToPrimitive(JavascriptHint hint, Var* value, ScriptContext * requestContext);
         virtual BOOL SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None);
-        virtual BOOL Equals(__in Var other, __out BOOL* value, ScriptContext* requestContext);
-        virtual BOOL StrictEquals(__in Var other, __out BOOL* value, ScriptContext* requestContext);
+        virtual BOOL Equals(_In_ Var other, _Out_ BOOL* value, ScriptContext* requestContext);
+        virtual BOOL StrictEquals(_In_ Var other, _Out_ BOOL* value, ScriptContext* requestContext);
         virtual BOOL IsWritable(PropertyId propertyId) { return false; }
         virtual BOOL IsConfigurable(PropertyId propertyId) { return false; }
         virtual BOOL IsEnumerable(PropertyId propertyId) { return false; }
@@ -349,7 +350,8 @@ namespace Js {
         virtual BOOL GetSpecialPropertyName(uint32 index, JavascriptString ** propertyName, ScriptContext * requestContext) { return false; }
         virtual uint GetSpecialPropertyCount() const { return 0; }
         virtual PropertyId const * GetSpecialPropertyIds() const { return nullptr; }
-        virtual RecyclableObject* GetThisObjectOrUnWrap(); // Due to the withScope object there are times we need to unwrap
+        RecyclableObject * GetUnwrappedObject();
+        virtual RecyclableObject* GetThisAndUnwrappedInstance(Var* thisVar) const; // Due to the withScope object there are times we need to unwrap
 
         virtual BOOL HasInstance(Var instance, ScriptContext* scriptContext, IsInstInlineCache* inlineCache = NULL);
 

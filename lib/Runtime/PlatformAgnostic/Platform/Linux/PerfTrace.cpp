@@ -1,11 +1,14 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "Common.h"
 #include "Runtime.h"
 #include "ChakraPlatform.h"
 
+// This define from sal.h conflicts with Linux's signal.h
+#undef __reserved
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>

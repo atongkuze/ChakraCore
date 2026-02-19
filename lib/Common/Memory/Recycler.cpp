@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -52,18 +53,7 @@ DefaultRecyclerCollectionWrapper::IsCollectionDisabled(Recycler * recycler)
     if (collectionDisabled)
     {
         // disabled collection should only happen if we allowed allocation during heap enum
-        if (recycler->IsHeapEnumInProgress())
-        {
-            Assert(recycler->AllowAllocationDuringHeapEnum());
-        }
-        else
-        {
-#ifdef ENABLE_PROJECTION
-            Assert(recycler->IsInRefCountTrackingForProjection());
-#else
-            Assert(false);
-#endif
-        }
+        Assert(recycler->IsHeapEnumInProgress() && recycler->AllowAllocationDuringHeapEnum());
     }
 #endif
     return collectionDisabled;
@@ -310,7 +300,6 @@ Recycler::Recycler(AllocationPolicyManager * policyManager, IdleDecommitPageAllo
 #endif
 #if DBG || defined RECYCLER_TRACE
     this->collectionCount = 0;
-    this->inResolveExternalWeakReferences = false;
 #endif
 #if DBG || defined(RECYCLER_STATS)
     isForceSweeping = false;
@@ -327,9 +316,6 @@ Recycler::Recycler(AllocationPolicyManager * policyManager, IdleDecommitPageAllo
 #if DBG
     allowAllocationDuringRenentrance = false;
     allowAllocationDuringHeapEnum = false;
-#ifdef ENABLE_PROJECTION
-    isInRefCountTrackingForProjection = false;
-#endif
 #endif
     ScheduleNextCollection();
 #if defined(RECYCLER_DUMP_OBJECT_GRAPH) ||  defined(LEAK_REPORT) || defined(CHECK_MEMORY_LEAK)
@@ -338,7 +324,7 @@ Recycler::Recycler(AllocationPolicyManager * policyManager, IdleDecommitPageAllo
 #endif
 
 #ifdef NTBUILD
-    memset(&localTelemetryBlock, 0, sizeof(localTelemetryBlock));
+    memset((void*)&localTelemetryBlock, 0, sizeof(localTelemetryBlock));
 #endif
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
@@ -1856,19 +1842,6 @@ Recycler::FindRoots()
     GCETW(GC_SCANROOTS_START, (this));
 
     RECYCLER_PROFILE_EXEC_BEGIN(this, Js::FindRootPhase);
-
-#ifdef ENABLE_PROJECTION
-    {
-        AUTO_TIMESTAMP(externalWeakReferenceObjectResolve);
-        BEGIN_DUMP_OBJECT(this, _u("External Weak Referenced Roots"));
-        Assert(!this->IsInRefCountTrackingForProjection());
-#if DBG
-        AutoIsInRefCountTrackingForProjection autoIsInRefCountTrackingForProjection(this);
-#endif
-        collectionWrapper->MarkExternalWeakReferencedObjects(this->inPartialCollectMode);
-        END_DUMP_OBJECT(this);
-    }
-#endif
 
     // go through ITracker* stuff. Don't need to do it if we are doing a partial collection
     // as we keep track and mark all trackable objects.
@@ -3440,21 +3413,6 @@ Recycler::DisposeObjects()
     }
 #endif
 
-#ifdef ENABLE_PROJECTION
-    {
-        Assert(!this->inResolveExternalWeakReferences);
-        Assert(!this->allowDispose);
-#if DBG || defined RECYCLER_TRACE
-        AutoRestoreValue<bool> inResolveExternalWeakReferencedObjects(&this->inResolveExternalWeakReferences, true);
-#endif
-        AUTO_TIMESTAMP(externalWeakReferenceObjectResolve);
-
-        // This is where it is safe to resolve external weak references as they can lead to new script entry
-        collectionWrapper->ResolveExternalWeakReferencedObjects();
-    }
-#endif
-
-    Assert(!this->inResolveExternalWeakReferences);
     Assert(this->inDispose);
 
     this->inDispose = false;
@@ -4047,7 +4005,7 @@ Recycler::DoCollect(CollectionFlags flags)
 #if ENABLE_PARTIAL_GC
         RecyclerCollectionStats oldCollectionStats = collectionStats;
 #endif
-        memset(&collectionStats, 0, sizeof(RecyclerCollectionStats));
+        memset((void*)&collectionStats, 0, sizeof(RecyclerCollectionStats));
         this->collectionStats.startCollectAllocBytes = autoHeap.uncollectedAllocBytes;
 #if ENABLE_PARTIAL_GC
         this->collectionStats.startCollectNewPageCount = autoHeap.uncollectedNewPageCount;
@@ -7996,7 +7954,7 @@ void Recycler::AutoSetupRecyclerForNonCollectingMark::DoCommonSetup()
     m_previousCollectionState = m_recycler.collectionState;
 #ifdef RECYCLER_STATS
     m_previousCollectionStats = m_recycler.collectionStats;
-    memset(&m_recycler.collectionStats, 0, sizeof(RecyclerCollectionStats));
+    memset((void*)&m_recycler.collectionStats, 0, sizeof(RecyclerCollectionStats));
 #endif
     m_setupDone = true;
 }
@@ -8381,7 +8339,7 @@ Recycler::SetTrackerData(void * address, TrackerData * data)
 }
 
 void
-Recycler::TrackUnallocated(__in char* address, __in  char *endAddress, size_t sizeCat)
+Recycler::TrackUnallocated(_In_ char* address, _In_  char *endAddress, size_t sizeCat)
 {
     if (!CONFIG_FLAG(KeepRecyclerTrackData))
     {
@@ -8964,7 +8922,7 @@ void Recycler::FlushFreeRecord()
     bulkFreeMemoryWrittenCount = 0;
 }
 
-void Recycler::AppendFreeMemoryETWRecord(__in char *address, size_t size)
+void Recycler::AppendFreeMemoryETWRecord(_In_ char *address, size_t size)
 {
     Assert(bulkFreeMemoryWrittenCount < Recycler::BulkFreeMemoryCount);
     __analysis_assume(bulkFreeMemoryWrittenCount < Recycler::BulkFreeMemoryCount);
@@ -9161,7 +9119,7 @@ void Recycler::SetCheckFn(BOOL(*checkFn)(char* addr, size_t size))
 #endif
 
 void
-Recycler::NotifyFree(__in char *address, size_t size)
+Recycler::NotifyFree(_In_ char *address, size_t size)
 {
     RecyclerVerboseTrace(GetRecyclerFlagsTable(), _u("Sweeping object %p\n"), address);
 

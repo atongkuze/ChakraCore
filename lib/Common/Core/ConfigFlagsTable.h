@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -28,17 +29,6 @@ namespace Js
         FlagNumberPairSet,
         FlagNumberTrioSet,
         FlagNumberRange
-    };
-
-    // Shadow of enum SCRIPTHOSTTYPE defined in activscp.idl.
-    enum HostType
-    {
-        HostTypeDefault = 0,        // Used to detect engines with uninitialized host type.
-        HostTypeBrowser = 1,        // Currently this implies enabled legacy language features, use it for IE.
-        HostTypeApplication = 2,    // Currently this implies legacy-free language features, use it for WWA.
-        HostTypeWebview = 3,        // Webview in a WWA/XAML app with WinRT access.
-        HostTypeMin = HostTypeBrowser,
-        HostTypeMax = HostTypeWebview
     };
 
     ///----------------------------------------------------------------------------
@@ -444,8 +434,8 @@ namespace Js
     // Methods
     public:
 
-        static  Flag            GetFlag(__in LPCWSTR str);
-        static  Phase           GetPhase(__in LPCWSTR str);
+        static  Flag            GetFlag(_In_ LPCWSTR str);
+        static  Phase           GetPhase(_In_ LPCWSTR str);
         static  void            PrintUsageString();
 
         static  FlagTypes       GetFlagType(Flag flag);
@@ -567,7 +557,6 @@ namespace Js
     public:
         ConfigFlagsTable           flags;
         static Configuration        Global;
-        bool EnableJitInDebugMode();
 
         // Public in case the client wants to have
         // a separate config from the global one

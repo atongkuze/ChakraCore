@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -28,9 +29,9 @@ namespace Js
         static const INT64 ticksPerMillisecond;
         static const double ticksPerMillisecondDouble;
         static const INT64 jsEpochMilliseconds;
-
-        static HRESULT ES5DateToWinRTDate(double es5Date, __out INT64* pResult);
-
+#ifdef INTL_WINGLOB
+        static HRESULT ES5DateToWinRTDate(double es5Date, _Out_ INT64* pResult);
+#endif
         static double TimeFromSt(SYSTEMTIME *pst);
         static double DayTimeFromSt(SYSTEMTIME *pst);
         static double TvFromDate(double year, double mon, double day, double time);
@@ -41,9 +42,6 @@ namespace Js
 
         static void GetYmdFromTv(double tv, DateTime::YMD *pymd);
         static void GetYearFromTv(double tv, int &year, int &yearType);
-
-        // Used for VT_DATE conversions
-        static double JsLocalTimeFromVarDate(double dbl);
     };
 
 }

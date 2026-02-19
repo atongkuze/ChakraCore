@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "JsrtPch.h"
@@ -799,7 +800,7 @@ CHAKRA_API JsGetCurrentContext(_Out_ JsContextRef *currentContext)
     END_JSRT_NO_EXCEPTION
 }
 
-CHAKRA_API JsSetCurrentContext(_In_ JsContextRef newContext)
+CHAKRA_API JsSetCurrentContext(_In_opt_ JsContextRef newContext)
 {
     VALIDATE_ENTER_CURRENT_THREAD();
 

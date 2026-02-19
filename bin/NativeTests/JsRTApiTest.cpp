@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "stdafx.h"
@@ -109,6 +110,20 @@ namespace JsRTApiTest
         JsRTApiTest::RunWithAttributes(JsRTApiTest::ReferenceCountingTest);
     }
 
+    __declspec(noinline) static void ClearStack()
+    {
+        // https://github.com/bdwgc/bdwgc/blob/e1042aa86d9403f433a2ab38ee2aab081984fca8/misc.c#L260-L285
+
+        constexpr int SMALL_CLEAR_SIZE = 256;
+        volatile void *dummy[SMALL_CLEAR_SIZE];
+
+        // https://news.ycombinator.com/item?id=4711605
+        // Zero memory + prevent compiler optimizations
+        volatile unsigned char *bp = (unsigned char *)dummy;
+        while (bp < (unsigned char *)dummy + sizeof(dummy))
+            *bp++ = 0;
+    }
+
     void WeakReferenceTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
     {
         JsValueRef valueRef = JS_INVALID_REFERENCE;
@@ -127,6 +142,7 @@ namespace JsRTApiTest
         valueRef = JS_INVALID_REFERENCE;
         valueRefFromWeakRef = JS_INVALID_REFERENCE;
 
+        ClearStack();
         CHECK(JsCollectGarbage(runtime) == JsNoError);
 
         // JsGetWeakReferenceValue should return an invalid reference after the value was GC'd.
@@ -2191,13 +2207,18 @@ namespace JsRTApiTest
         return JsNoError;
     }
 
-    static JsErrorCode CALLBACK Succes_NMRC(_In_opt_ JsModuleRecord referencingModule, _In_opt_ JsValueRef exceptionVar)
+    static JsErrorCode CALLBACK Success_NMRC(_In_opt_ JsModuleRecord referencingModule, _In_opt_ JsValueRef exceptionVar)
     {
         if (successTest.mainModule == referencingModule)
         {
             successTest.mainModuleReady = true;
             successTest.mainModuleException = exceptionVar;
         }
+        return JsNoError;
+    }
+
+    static JsErrorCode CALLBACK Success_IIMC(_In_opt_ JsModuleRecord referencingModule, _In_opt_ JsValueRef importMetaVar)
+    {
         return JsNoError;
     }
 
@@ -2211,7 +2232,8 @@ namespace JsRTApiTest
         successTest.mainModule = requestModule;
         REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_FetchImportedModuleCallback, Success_FIMC) == JsNoError);
         REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_FetchImportedModuleFromScriptCallback, Success_FIMC) == JsNoError);
-        REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_NotifyModuleReadyCallback, Succes_NMRC) == JsNoError);
+        REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_NotifyModuleReadyCallback, Success_NMRC) == JsNoError);
+        REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_InitializeImportMetaCallback, Success_IIMC) == JsNoError);
 
         JsValueRef errorObject = JS_INVALID_REFERENCE;
         const char* fileContent = "import {x} from 'foo.js'";
@@ -2253,7 +2275,70 @@ namespace JsRTApiTest
     TEST_CASE("ApiTest_ModuleSuccessTest", "[ApiTest]")
     {
         JsRTApiTest::WithSetup(JsRuntimeAttributeEnableExperimentalFeatures, ModuleSuccessTest);
+    }
 
+    void JsIsCallableTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
+    {
+        JsValueRef callables, callable, index, nonCallables, nonCallable;
+        bool check;
+
+        REQUIRE(JsRunScript(_u("[function(){},function*(){},async function(){},async function*(){},_=>_,async _=>_]"),
+                            JS_SOURCE_CONTEXT_NONE, _u(""), &callables) == JsNoError);
+
+        for (int i = 0; i < 6; i++)
+        {
+            REQUIRE(JsIntToNumber(i, &index) == JsNoError);
+            REQUIRE(JsGetIndexedProperty(callables, index, &callable) == JsNoError);
+            REQUIRE(JsIsCallable(callable, &check) == JsNoError);
+            CHECK(check);
+        }
+
+        
+        REQUIRE(JsRunScript(_u("[class{},Math,Reflect,{}]"), JS_SOURCE_CONTEXT_NONE, _u(""), &nonCallables) == JsNoError);
+
+        for (int i = 0; i < 4; i++)
+        {
+            REQUIRE(JsIntToNumber(i, &index) == JsNoError);
+            REQUIRE(JsGetIndexedProperty(nonCallables, index, &nonCallable) == JsNoError);
+            REQUIRE(JsIsCallable(nonCallable, &check) == JsNoError);
+            CHECK(!check);
+        }
+    }
+
+    TEST_CASE("ApiTest_JsIsCallableTest", "[ApiTest]") {
+        JsRTApiTest::RunWithAttributes(JsIsCallableTest);
+    }
+
+    void JsIsConstructorTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
+    {
+        JsValueRef constructables, constructable, index, nonConstructables, nonConstructable;
+        bool check;
+
+        REQUIRE(JsRunScript(_u("[class{},function(){}]"), JS_SOURCE_CONTEXT_NONE, _u(""), &constructables) == JsNoError);
+
+        for (int i = 0; i < 2; i++)
+        {
+            REQUIRE(JsIntToNumber(i, &index) == JsNoError);
+            REQUIRE(JsGetIndexedProperty(constructables, index, &constructable) == JsNoError);
+            REQUIRE(JsIsConstructor(constructable, &check) == JsNoError);
+            CHECK(check);
+        }
+
+        
+        REQUIRE(JsRunScript(_u("[Math,Reflect,{},function*(){},async function(){},async function*(){},_=>_,async _=>_]"),
+                            JS_SOURCE_CONTEXT_NONE, _u(""), &nonConstructables) == JsNoError);
+
+        for (int i = 0; i < 8; i++)
+        {
+            REQUIRE(JsIntToNumber(i, &index) == JsNoError);
+            REQUIRE(JsGetIndexedProperty(nonConstructables, index, &nonConstructable) == JsNoError);
+            REQUIRE(JsIsConstructor(nonConstructable, &check) == JsNoError);
+            CHECK(!check);
+        }
+    }
+
+    TEST_CASE("ApiTest_JsIsConstructorTest", "[ApiTest]") {
+        JsRTApiTest::RunWithAttributes(JsIsConstructorTest);
     }
 
     void SetModuleHostInfoTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
@@ -2279,7 +2364,7 @@ namespace JsRTApiTest
         REQUIRE(JsInitializeModuleRecord(nullptr, specifier, &requestModule) == JsNoError);
 
         successTest.mainModule = requestModule;
-        REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_NotifyModuleReadyCallback, Succes_NMRC) == JsNoError);
+        REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_NotifyModuleReadyCallback, Success_NMRC) == JsNoError);
 
         // Parsing
         JsValueRef errorObject1 = JS_INVALID_REFERENCE;
@@ -2327,7 +2412,7 @@ namespace JsRTApiTest
         successTest.mainModule = requestModule;
         REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_FetchImportedModuleCallback, Success_FIMC1) == JsNoError);
         REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_FetchImportedModuleFromScriptCallback, Success_FIMC1) == JsNoError);
-        REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_NotifyModuleReadyCallback, Succes_NMRC) == JsNoError);
+        REQUIRE(JsSetModuleHostInfo(requestModule, JsModuleHostInfo_NotifyModuleReadyCallback, Success_NMRC) == JsNoError);
 
         JsValueRef errorObject = JS_INVALID_REFERENCE;
         const char* fileContent = "import {x} from 'foo.js'";

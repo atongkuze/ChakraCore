@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft Corporation and contributors. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -215,7 +216,6 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     , closedScriptContextCount(0)
     , visibilityState(VisibilityState::Undefined)
 {
-    pendingProjectionContextCloseList = JsUtil::List<IProjectionContext*, ArenaAllocator>::New(GetThreadAlloc());
     hostScriptContextStack = Anew(GetThreadAlloc(), JsUtil::Stack<HostScriptContext*>, GetThreadAlloc());
 
     functionCount = 0;
@@ -249,7 +249,7 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
 #endif
 
 #ifdef NTBUILD
-    memset(&localTelemetryBlock, 0, sizeof(localTelemetryBlock));
+    memset((void*)&localTelemetryBlock, 0, sizeof(localTelemetryBlock));
 #endif
 
     AutoCriticalSection autocs(ThreadContext::GetCriticalSection());
@@ -259,12 +259,6 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     // it will pick up the thread context id that is current on the thread. We need to update
     // that now.
     pageAllocator.UpdateThreadContextHandle((ThreadContextId)this);
-#endif
-
-#ifdef ENABLE_PROJECTION
-#if DBG_DUMP
-    this->projectionMemoryInformation = nullptr;
-#endif
 #endif
 
 #if DBG
@@ -554,10 +548,6 @@ ThreadContext::~ThreadContext()
     // Do not require all GC callbacks to be revoked, because Trident may not revoke if there
     // is a leak, and we don't want the leak to be masked by an assert
 
-#ifdef ENABLE_PROJECTION
-    externalWeakReferenceCacheList.Clear(&HeapAllocator::Instance);
-#endif
-
     this->collectCallBackList.Clear(&HeapAllocator::Instance);
     this->protoInlineCacheByPropId.Reset();
     this->storeFieldInlineCacheByPropId.Reset();
@@ -593,16 +583,6 @@ ThreadContext::~ThreadContext()
     {
         this->dynamicProfileMutator->Delete();
     }
-#endif
-
-#ifdef ENABLE_PROJECTION
-#if DBG_DUMP
-    if (this->projectionMemoryInformation)
-    {
-        this->projectionMemoryInformation->Release();
-        this->projectionMemoryInformation = nullptr;
-    }
-#endif
 #endif
 }
 
@@ -882,7 +862,7 @@ ThreadContext::FindPropertyRecord(Js::JavascriptString *pstName, Js::PropertyRec
 }
 
 void
-ThreadContext::FindPropertyRecord(__in LPCWCH propertyName, __in int propertyNameLength, Js::PropertyRecord const ** propertyRecord)
+ThreadContext::FindPropertyRecord(_In_ LPCWCH propertyName, _In_ int propertyNameLength, Js::PropertyRecord const ** propertyRecord)
 {
     EnterPinnedScope((volatile void **)propertyRecord);
     *propertyRecord = FindPropertyRecord(propertyName, propertyNameLength);
@@ -924,7 +904,7 @@ ThreadContext::FindPropertyRecord(const char16 * propertyName, int propertyNameL
 }
 
 Js::PropertyRecord const *
-ThreadContext::UncheckedAddPropertyId(__in LPCWSTR propertyName, __in int propertyNameLength, bool bind, bool isSymbol)
+ThreadContext::UncheckedAddPropertyId(_In_ LPCWSTR propertyName, _In_ int propertyNameLength, bool bind, bool isSymbol)
 {
     return UncheckedAddPropertyId(JsUtil::CharacterBuffer<WCHAR>(propertyName, propertyNameLength), bind, isSymbol);
 }
@@ -1506,7 +1486,6 @@ ThreadContext::EnterScriptEnd(Js::ScriptEntryExitRecord * record, bool doCleanup
         {
             poller->EndScript();
         }
-        ClosePendingProjectionContexts();
         ClosePendingScriptContexts();
         Assert(rootPendingClose == nullptr);
 
@@ -2005,6 +1984,13 @@ ThreadContext::EnsureJITThreadContext(bool allowPrereserveAlloc)
         &m_jitThunkStartAddr);
     JITManager::HandleServerCallResult(hr, RemoteCallType::StateUpdate);
 
+    // Initialize mutable ThreadContext state if needed
+    Js::TypeId wellKnownType = this->wellKnownHostTypeIds[WellKnownHostType_HTMLAllCollection];
+    if (m_remoteThreadContextInfo && wellKnownType != Js::TypeIds_Undefined)
+    {
+        hr = JITManager::GetJITManager()->SetWellKnownHostTypeId(m_remoteThreadContextInfo, wellKnownType);
+        JITManager::HandleServerCallResult(hr, RemoteCallType::StateUpdate);
+    }
     return m_remoteThreadContextInfo != nullptr;
 #endif
 }
@@ -2237,7 +2223,7 @@ void ThreadContext::PopEntryExitRecord(Js::ScriptEntryExitRecord * record)
     this->entryExitRecord = next;
 }
 
-BOOL ThreadContext::ReserveStaticTypeIds(__in int first, __in int last)
+BOOL ThreadContext::ReserveStaticTypeIds(_In_ int first, _In_ int last)
 {
     if ( nextTypeId <= first )
     {
@@ -2450,30 +2436,6 @@ void ThreadContext::ClosePendingScriptContexts()
     }
     while (scriptContext);
     rootPendingClose = nullptr;
-}
-
-void
-ThreadContext::AddToPendingProjectionContextCloseList(IProjectionContext *projectionContext)
-{
-    pendingProjectionContextCloseList->Add(projectionContext);
-}
-
-void
-ThreadContext::RemoveFromPendingClose(IProjectionContext* projectionContext)
-{
-    pendingProjectionContextCloseList->Remove(projectionContext);
-}
-
-void ThreadContext::ClosePendingProjectionContexts()
-{
-    IProjectionContext* projectionContext;
-    for (int i = 0 ; i < pendingProjectionContextCloseList->Count(); i++)
-    {
-        projectionContext = pendingProjectionContextCloseList->Item(i);
-        projectionContext->Close();
-    }
-    pendingProjectionContextCloseList->Clear();
-
 }
 
 void
@@ -4459,59 +4421,6 @@ void ThreadContext::EtwLogPropertyIdList()
 }
 #endif
 
-#ifdef ENABLE_PROJECTION
-void ThreadContext::AddExternalWeakReferenceCache(ExternalWeakReferenceCache *externalWeakReferenceCache)
-{
-    this->externalWeakReferenceCacheList.Prepend(&HeapAllocator::Instance, externalWeakReferenceCache);
-}
-
-void ThreadContext::RemoveExternalWeakReferenceCache(ExternalWeakReferenceCache *externalWeakReferenceCache)
-{
-    Assert(!externalWeakReferenceCacheList.Empty());
-    this->externalWeakReferenceCacheList.Remove(&HeapAllocator::Instance, externalWeakReferenceCache);
-}
-
-void ThreadContext::MarkExternalWeakReferencedObjects(bool inPartialCollect)
-{
-    SListBase<ExternalWeakReferenceCache *, HeapAllocator>::Iterator iteratorWeakRefCache(&this->externalWeakReferenceCacheList);
-    while (iteratorWeakRefCache.Next())
-    {
-        iteratorWeakRefCache.Data()->MarkNow(recycler, inPartialCollect);
-    }
-}
-
-void ThreadContext::ResolveExternalWeakReferencedObjects()
-{
-    SListBase<ExternalWeakReferenceCache *, HeapAllocator>::Iterator iteratorWeakRefCache(&this->externalWeakReferenceCacheList);
-    while (iteratorWeakRefCache.Next())
-    {
-        iteratorWeakRefCache.Data()->ResolveNow(recycler);
-    }
-}
-
-#if DBG_DUMP
-void ThreadContext::RegisterProjectionMemoryInformation(IProjectionContextMemoryInfo* projectionContextMemoryInfo)
-{
-    Assert(this->projectionMemoryInformation == nullptr || this->projectionMemoryInformation == projectionContextMemoryInfo);
-
-    this->projectionMemoryInformation = projectionContextMemoryInfo;
-}
-
-void ThreadContext::DumpProjectionContextMemoryStats(LPCWSTR headerMsg, bool forceDetailed)
-{
-    if (this->projectionMemoryInformation)
-    {
-        this->projectionMemoryInformation->DumpCurrentStats(headerMsg, forceDetailed);
-    }
-}
-
-IProjectionContextMemoryInfo* ThreadContext::GetProjectionContextMemoryInformation()
-{
-    return this->projectionMemoryInformation;
-}
-#endif
-#endif
-
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
 Js::Var ThreadContext::GetMemoryStat(Js::ScriptContext* scriptContext)
 {
@@ -4676,29 +4585,6 @@ Js::DelayLoadWinRtString * ThreadContext::GetWinRTStringLibrary()
 
     return &delayLoadWinRtString;
 }
-
-#ifdef ENABLE_PROJECTION
-Js::DelayLoadWinRtError * ThreadContext::GetWinRTErrorLibrary()
-{
-    delayLoadWinRtError.EnsureFromSystemDirOnly();
-
-    return &delayLoadWinRtError;
-}
-
-Js::DelayLoadWinRtTypeResolution* ThreadContext::GetWinRTTypeResolutionLibrary()
-{
-    delayLoadWinRtTypeResolution.EnsureFromSystemDirOnly();
-
-    return &delayLoadWinRtTypeResolution;
-}
-
-Js::DelayLoadWinRtRoParameterizedIID* ThreadContext::GetWinRTRoParameterizedIIDLibrary()
-{
-    delayLoadWinRtRoParameterizedIID.EnsureFromSystemDirOnly();
-
-    return &delayLoadWinRtRoParameterizedIID;
-}
-#endif
 
 #if defined(ENABLE_INTL_OBJECT) || defined(ENABLE_ES6_CHAR_CLASSIFIER)
 #ifdef INTL_WINGLOB

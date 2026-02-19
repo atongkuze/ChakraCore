@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "stdafx.h"
@@ -388,8 +389,6 @@ LPCWSTR Helpers::JsErrorCodeToString(JsErrorCode jsErrorCode)
     case JsErrorAlreadyDebuggingContext:       return _u("JsErrorAlreadyDebuggingContext");
     case JsErrorAlreadyProfilingContext:       return _u("JsErrorAlreadyProfilingContext");
     case JsErrorIdleNotEnabled:                return _u("JsErrorIdleNotEnabled");
-    case JsCannotSetProjectionEnqueueCallback: return _u("JsCannotSetProjectionEnqueueCallback");
-    case JsErrorCannotStartProjection:         return _u("JsErrorCannotStartProjection");
     case JsErrorInObjectBeforeCollectCallback: return _u("JsErrorInObjectBeforeCollectCallback");
     case JsErrorObjectNotInspectable:          return _u("JsErrorObjectNotInspectable");
     case JsErrorPropertyNotSymbol:             return _u("JsErrorPropertyNotSymbol");
@@ -425,7 +424,7 @@ LPCWSTR Helpers::JsErrorCodeToString(JsErrorCode jsErrorCode)
     }
 }
 
-void Helpers::LogError(__in __nullterminated const char16 *msg, ...)
+void Helpers::LogError(_In_ __nullterminated const char16 *msg, ...)
 {
     va_list args;
     va_start(args, msg);

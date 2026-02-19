@@ -77,7 +77,6 @@
       "t": {
         "#__proto__": "Object {...}",
         "message": "string <large string>",
-        "description": "string <large string>",
         "number": "number -2146823279",
         "stack": "string <large string>"
       },
@@ -86,7 +85,7 @@
         "#__proto__": "function <large string>",
         "prototype": "Object {...}",
         "length": "number 2",
-        "name": "string ",
+        "name": "string s",
         "caller": "object null",
         "arguments": "object null"
       },

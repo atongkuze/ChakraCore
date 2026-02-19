@@ -42,6 +42,7 @@
               "getOwnPropertyDescriptor": "function <large string>",
               "getOwnPropertyDescriptors": "function <large string>",
               "defineProperties": "function <large string>",
+              "hasOwn": "function <large string>",
               "create": "function <large string>",
               "seal": "function <large string>",
               "freeze": "function <large string>",
@@ -130,7 +131,7 @@
               "#__proto__": "Object {...}",
               "constructor": "function <large string>",
               "resolvedOptions": "function <large string>",
-              "compare": "function <large string>"
+              "compare": "Error <large string>"
             },
             "length": "number 0",
             "name": "string Collator",
@@ -191,6 +192,7 @@
               "getOwnPropertyDescriptor": "function <large string>",
               "getOwnPropertyDescriptors": "function <large string>",
               "defineProperties": "function <large string>",
+              "hasOwn": "function <large string>",
               "create": "function <large string>",
               "seal": "function <large string>",
               "freeze": "function <large string>",
@@ -279,7 +281,8 @@
               "#__proto__": "Object {...}",
               "constructor": "function <large string>",
               "resolvedOptions": "function <large string>",
-              "format": "function <large string>"
+              "format": "Error <large string>",
+              "formatToParts": "function <large string>"
             },
             "length": "number 0",
             "name": "string NumberFormat",
@@ -321,6 +324,23 @@
               "arguments": "Error <large string>"
             },
             "length": "number 1"
+          },
+          "formatToParts": {
+            "#__proto__": {
+              "#__proto__": "Object {...}",
+              "constructor": "function <large string>",
+              "length": "number 0",
+              "name": "string ",
+              "apply": "function <large string>",
+              "bind": "function <large string>",
+              "call": "function <large string>",
+              "toString": "function <large string>",
+              "Symbol.hasInstance": "function <large string>",
+              "caller": "Error <large string>",
+              "arguments": "Error <large string>"
+            },
+            "length": "number 1",
+            "name": "string formatToParts"
           }
         }
       }
@@ -340,6 +360,7 @@
               "getOwnPropertyDescriptor": "function <large string>",
               "getOwnPropertyDescriptors": "function <large string>",
               "defineProperties": "function <large string>",
+              "hasOwn": "function <large string>",
               "create": "function <large string>",
               "seal": "function <large string>",
               "freeze": "function <large string>",
@@ -427,17 +448,12 @@
             "prototype": {
               "#__proto__": "Object {...}",
               "constructor": "function <large string>",
-              "format": "function <large string>",
+              "format": "Error <large string>",
+              "formatToParts": "function <large string>",
               "resolvedOptions": "function <large string>"
             },
             "length": "number 0",
             "name": "string DateTimeFormat",
-            "__relevantExtensionKeys": {
-              "#__proto__": "Array []",
-              "length": "number 2",
-              "[0]": "string \"ca\"",
-              "[1]": "string \"nu\""
-            },
             "supportedLocalesOf": {
               "#__proto__": "function <large string>",
               "length": "number 1",
@@ -459,6 +475,23 @@
               "arguments": "Error <large string>"
             },
             "length": "number 1"
+          },
+          "formatToParts": {
+            "#__proto__": {
+              "#__proto__": "Object {...}",
+              "constructor": "function <large string>",
+              "length": "number 0",
+              "name": "string ",
+              "apply": "function <large string>",
+              "bind": "function <large string>",
+              "call": "function <large string>",
+              "toString": "function <large string>",
+              "Symbol.hasInstance": "function <large string>",
+              "caller": "Error <large string>",
+              "arguments": "Error <large string>"
+            },
+            "length": "number 1",
+            "name": "string formatToParts"
           },
           "resolvedOptions": {
             "#__proto__": {

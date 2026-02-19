@@ -2,6 +2,13 @@
 <regress-exe>
   <test>
     <default>
+      <files>typedarray_at.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
+      <tags>typedarray</tags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>likely.js</files>
       <compile-flags>-bgjit- -lic:1</compile-flags>
       <tags>typedarray</tags>
@@ -263,14 +270,14 @@ Below test fails with difference in space. Investigate the cause and re-enable t
   <test>
     <default>
       <files>allocation.js</files>
-      <tags>typedarray,exclude_arm,xplatslow,Slow</tags>
+      <tags>typedarray,exclude_arm,xplatslow,Slow,exclude_x86</tags>
       <timeout>300</timeout>
     </default>
   </test>
   <test>
     <default>
       <files>allocation2.js</files>
-      <tags>typedarray,exclude_arm,xplatslow,Slow</tags>
+      <tags>typedarray,exclude_arm,xplatslow,Slow,exclude_x86</tags>
       <timeout>300</timeout>
     </default>
   </test>
@@ -309,7 +316,7 @@ Below test fails with difference in space. Investigate the cause and re-enable t
     <default>
       <files>Uint8ClampedArray.js</files>
       <baseline>Uint8ClampedArray_es6.baseline</baseline>
-      <tags>typedarray,exclude_jshost</tags> <!-->Disabled jshost, created issue #5520<!-->
+      <tags>typedarray</tags> <!-->Disabled jshost, created issue #5520<!-->
     </default>
   </test>
   <test>
@@ -426,6 +433,12 @@ Below test fails with difference in space. Investigate the cause and re-enable t
   <test>
     <default>
       <files>definitetypedarray.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>sort.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
 </regress-exe>

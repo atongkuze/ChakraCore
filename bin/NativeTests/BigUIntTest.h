@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -17,7 +18,7 @@ namespace Js
         Assert(false);
     }
 
-    bool Throw::ReportAssert(__in char const *, unsigned int, __in char const *, __in char const *)
+    bool Throw::ReportAssert(_In_ char const *, unsigned int, _In_ char const *, _In_ char const *)
     {
         return false;
     }
@@ -26,7 +27,7 @@ namespace Js
 }
 
 template <typename EncodedChar>
-double Js::NumberUtilities::StrToDbl(const EncodedChar *, const EncodedChar **, LikelyNumberType& , bool)
+double Js::NumberUtilities::StrToDbl(const EncodedChar *, const EncodedChar **, LikelyNumberType& , bool, bool)
 {
     Assert(false);
     return 0.0;// don't care

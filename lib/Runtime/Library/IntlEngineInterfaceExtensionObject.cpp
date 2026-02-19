@@ -1,5 +1,6 @@
 //-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
+// Copyright (c) ChakraCore Project Contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
@@ -118,26 +119,6 @@ PROJECTED_ENUMS(PROJECTED_ENUM)
 
 #undef PROJECTED_ENUM
 #undef ENUM_VALUE
-
-#pragma warning(push)
-#pragma warning(disable:4309) // truncation of constant value
-#pragma warning(disable:4838) // conversion from 'int' to 'const char' requires a narrowing conversion
-
-#if DISABLE_JIT
-#if TARGET_64
-#include "InJavascript/Intl.js.nojit.bc.64b.h"
-#else
-#include "InJavascript/Intl.js.nojit.bc.32b.h"
-#endif
-#else
-#if TARGET_64
-#include "InJavascript/Intl.js.bc.64b.h"
-#else
-#include "InJavascript/Intl.js.bc.32b.h"
-#endif
-#endif
-
-#pragma warning(pop)
 
 #define IfFailAssertAndThrowHr(op) \
     if (FAILED(hr=(op))) \
@@ -529,9 +510,6 @@ namespace Js
         }
         JavascriptLibrary* library = scriptContext->GetLibrary();
 
-        // Ensure JsBuiltIns are initialized before initializing Intl which uses some of them.
-        library->EnsureBuiltInEngineIsReady();
-
         DynamicObject* commonObject = library->GetEngineInterfaceObject()->GetCommonNativeInterfaces();
         if (scriptContext->IsIntlEnabled())
         {
@@ -632,6 +610,9 @@ PROJECTED_ENUMS(PROJECTED_ENUM)
 #endif // defined(NTBUILD)
 #endif // else !INTL_WINGLOB
 
+        // Add a reference to the built-in Intl object that can be referenced from the init code in Intl.js.
+        library->AddMember(intlNativeInterfaces, Js::PropertyIds::Intl, library->GetIntlObject());
+
         intlNativeInterfaces->SetHasNoEnumerableProperties(true);
 
         return true;
@@ -714,12 +695,12 @@ PROJECTED_ENUMS(PROJECTED_ENUM)
             Assert(sourceContextInfo != nullptr);
 
             SRCINFO si;
-            memset(&si, 0, sizeof(si));
+            memset((void*)&si, 0, sizeof(si));
             si.sourceContextInfo = sourceContextInfo;
             SRCINFO *hsi = scriptContext->AddHostSrcInfo(&si);
             uint32 flags = fscrIsLibraryCode | (CONFIG_FLAG(CreateFunctionProxy) && !scriptContext->IsProfiling() ? fscrAllowFunctionProxy : 0);
 
-            HRESULT hr = Js::ByteCodeSerializer::DeserializeFromBuffer(scriptContext, flags, (LPCUTF8)nullptr, hsi, (byte*)Library_Bytecode_Intl, nullptr, &this->intlByteCode);
+            HRESULT hr = Js::ByteCodeSerializer::DeserializeFromBuffer(scriptContext, flags, (LPCUTF8)nullptr, hsi, (byte*)js::Library_Bytecode_Intl, nullptr, &this->intlByteCode);
 
             IfFailAssertMsgAndThrowHr(hr, "Failed to deserialize Intl.js bytecode - very probably the bytecode needs to be rebuilt.");
 
@@ -729,6 +710,11 @@ PROJECTED_ENUMS(PROJECTED_ENUM)
 
     void IntlEngineInterfaceExtensionObject::InjectIntlLibraryCode(_In_ ScriptContext * scriptContext, DynamicObject* intlObject, IntlInitializationType intlInitializationType)
     {
+
+        // Ensure JsBuiltIns are initialized before initializing Intl which uses some of them.
+        scriptContext->GetLibrary()->EnsureArrayBuiltInsAreReady();
+        scriptContext->GetLibrary()->EnsureMathBuiltInsAreReady();
+
         JavascriptExceptionObject *pExceptionObject = nullptr;
 #ifdef INTL_WINGLOB
         WindowsGlobalizationAdapter* globAdapter = GetWindowsGlobalizationAdapter(scriptContext);
@@ -2271,14 +2257,14 @@ DEFINE_ISXLOCALEAVAILABLE(PR, uloc)
         Field(ScriptContext *) sc;
         Field(UNumberFormatFields *) fields;
 
-        static const UNumberFormatFields UnsetField = static_cast<UNumberFormatFields>(0xFFFFFFFF);
+        static const uint8_t UnsetField = 0xFF;
 
         JavascriptString *GetPartTypeString(UNumberFormatFields field)
         {
             JavascriptLibrary *library = sc->GetLibrary();
 
             // this is outside the switch because MSVC doesn't like that UnsetField is not a valid enum value
-            if (field == UnsetField)
+            if ((static_cast<uint32_t>(field) & 0xFF) == UnsetField)
             {
                 return library->GetIntlLiteralPartString();
             }
@@ -2451,7 +2437,8 @@ DEFINE_ISXLOCALEAVAILABLE(PR, uloc)
             return JavascriptString::NewWithBuffer(formatted, formattedLen, scriptContext);
         }
 
-#if defined(ICU_VERSION) && ICU_VERSION >= 61
+        // windows-icu does not define `ICU_VERSION` but does support `unum_formatDoubleForFields` (ICU 61+) since Windows 10 1809 "Redstone 5" (`NTDDI_WIN10_RS5`).
+#if !defined(ICU_VERSION) || ICU_VERSION >= 61
         UErrorCode status = U_ZERO_ERROR;
         ScopedUFieldPositionIterator fpi(ufieldpositer_open(&status));
 
@@ -2527,39 +2514,6 @@ DEFINE_ISXLOCALEAVAILABLE(PR, uloc)
     }
 
 #ifdef INTL_ICU
-    // Implementation of ECMA 262 #sec-timeclip
-    // REVIEW(jahorto): Where is a better place for this function? JavascriptDate? DateUtilities? JavascriptConversion?
-    static double TimeClip(Var x)
-    {
-        double time = 0.0;
-        if (TaggedInt::Is(x))
-        {
-            time = TaggedInt::ToDouble(x);
-        }
-        else
-        {
-            AssertOrFailFast(JavascriptNumber::Is(x));
-            time = JavascriptNumber::GetValue(x);
-
-            // Only perform steps 1, 3, and 4 if the input was not a TaggedInt, since TaggedInts cant be infinite or -0
-            if (!NumberUtilities::IsFinite(time))
-            {
-                return NumberConstants::NaN;
-            }
-
-            // This performs both steps 3 and 4
-            time = JavascriptConversion::ToInteger(time);
-        }
-
-        // Step 2: If abs(time) > 8.64e15, return NaN.
-        if (Math::Abs(time) > 8.64e15)
-        {
-            return NumberConstants::NaN;
-        }
-
-        return time;
-    }
-
     static void AddPartToPartsArray(ScriptContext *scriptContext, JavascriptArray *arr, int arrIndex, const char16 *src, int start, int end, JavascriptString *partType)
     {
         JavascriptString *partValue = JavascriptString::NewCopyBuffer(
@@ -2654,7 +2608,7 @@ DEFINE_ISXLOCALEAVAILABLE(PR, uloc)
 
         // 1. Let x be TimeClip(x)
         // 2. If x is NaN, throw a RangeError exception
-        double date = TimeClip(args[2]);
+        double date = JavascriptDate::TimeClip(args[2]);
         if (JavascriptNumber::IsNan(date))
         {
             JavascriptError::ThrowRangeError(scriptContext, JSERR_InvalidDate);
@@ -3059,7 +3013,9 @@ DEFINE_ISXLOCALEAVAILABLE(PR, uloc)
         // For ICU < 61, we can fake it by creating an array of ["other"], which
         // uplrules_getKeywords is guaranteed to return at minimum.
         // This array is only used in resolved options, so the majority of the functionality can remain (namely, select() still works)
-#if defined(ICU_VERSION) && ICU_VERSION >= 61
+        // 
+        // windows-icu does not define `ICU_VERSION` but does support `uplrules_getKeywords` (ICU 61+) since Windows 10 1809 "Redstone 5" (`NTDDI_WIN10_RS5`).
+#if !defined(ICU_VERSION) || ICU_VERSION >= 61
         DynamicObject *state = UnsafeVarTo<DynamicObject>(args[1]);
         FinalizableUPluralRules *pr = GetOrCreateCachedUPluralRules(state, scriptContext);
 
@@ -3142,8 +3098,10 @@ DEFINE_ISXLOCALEAVAILABLE(PR, uloc)
         }, scriptContext->GetRecycler(), &formattedN, &formattedNLength);
 
         double nWithOptions = unum_parseDouble(*nf, reinterpret_cast<UChar *>(formattedN), formattedNLength, nullptr, &status);
-        double roundtripDiff = n - nWithOptions;
-        ICU_ASSERT(status, roundtripDiff <= 1.0 && roundtripDiff >= -1.0);
+
+        ICU_ASSERT(status, (n > 0.0 && nWithOptions <= n && nWithOptions >= 0.0) ||
+            (n < 0.0 && nWithOptions >= n && nWithOptions <= 0) ||
+            (n == 0.0 && nWithOptions == 0));
 
         char16 *selected = nullptr;
         int selectedLength = 0;
